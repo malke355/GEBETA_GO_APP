@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button } from '@/components';
+import { CartBar, useCart } from '@/features/cart';
 import { colors, spacing } from '@/theme';
 import type { MenuItem, Restaurant } from '@/types';
 import { MenuItemCard } from './MenuItemCard';
@@ -71,6 +72,7 @@ function RestaurantHeader({ restaurant, onBack }: { restaurant: Restaurant; onBa
 
 export function RestaurantMenuScreen({ restaurantId, onBack }: RestaurantMenuScreenProps) {
   const { restaurant, loading, error, refresh } = useRestaurant(restaurantId);
+  const { quantityFor, addItem, increment, decrement, itemCount } = useCart();
   const [category, setCategory] = useState(ALL_CATEGORIES);
 
   const categories = useMemo(() => {
@@ -115,7 +117,13 @@ export function RestaurantMenuScreen({ restaurantId, onBack }: RestaurantMenuScr
         keyExtractor={(item) => item.id}
         renderItem={({ item }: { item: MenuItem }) => (
           <View style={styles.itemWrap}>
-            <MenuItemCard item={item} />
+            <MenuItemCard
+              item={item}
+              quantity={quantityFor(item.id)}
+              onAdd={() => addItem(item, restaurant)}
+              onIncrement={() => increment(item.id)}
+              onDecrement={() => decrement(item.id)}
+            />
           </View>
         )}
         ListHeaderComponent={
@@ -148,8 +156,9 @@ export function RestaurantMenuScreen({ restaurantId, onBack }: RestaurantMenuScr
             No dishes in this category.
           </AppText>
         }
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, itemCount > 0 && styles.listWithCart]}
       />
+      <CartBar />
     </View>
   );
 }
@@ -220,6 +229,9 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: spacing.xl,
+  },
+  listWithCart: {
+    paddingBottom: 120,
   },
   itemWrap: {
     paddingHorizontal: spacing.lg,

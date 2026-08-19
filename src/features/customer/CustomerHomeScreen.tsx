@@ -10,8 +10,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { AppText, Button } from '@/components';
+import { CartBar, useCart } from '@/features/cart';
 import { routes } from '@/navigation';
 import { colors, spacing, typography } from '@/theme';
 import type { Restaurant } from '@/types';
@@ -45,6 +46,7 @@ type CustomerHomeScreenProps = {
 
 export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScreenProps) {
   const router = useRouter();
+  const { itemCount } = useCart();
   const { restaurants, loading, error, refresh } = useRestaurants();
   const [query, setQuery] = useState('');
   const [cuisine, setCuisine] = useState(ALL_CUISINES);
@@ -71,9 +73,24 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
           </AppText>
           <AppText variant="title">Hi, {customerName.split(' ')[0] ?? customerName}</AppText>
         </View>
-        <Pressable onPress={onLogout} hitSlop={8} accessibilityRole="button" accessibilityLabel="Log out">
-          <Ionicons name="log-out-outline" size={24} color={colors.text} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => router.push(routes.cart)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Open cart"
+          >
+            <Ionicons name="cart-outline" size={24} color={colors.text} />
+            {itemCount > 0 ? (
+              <View style={styles.badge}>
+                <AppText style={styles.badgeText}>{itemCount}</AppText>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable onPress={onLogout} hitSlop={8} accessibilityRole="button" accessibilityLabel="Log out">
+            <Ionicons name="log-out-outline" size={24} color={colors.text} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.searchWrap}>
@@ -104,10 +121,10 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
           renderItem={({ item }) => (
             <RestaurantCard
               restaurant={item}
-              onPress={() => router.push(routes.restaurant(item.id))}
+              onPress={() => router.push(routes.restaurant(item.id) as Href)}
             />
           )}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, itemCount > 0 && styles.listWithCart]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListHeaderComponent={
             <ScrollView
@@ -141,6 +158,7 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
           }
         />
       )}
+      <CartBar />
     </View>
   );
 }
@@ -162,6 +180,28 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
     paddingRight: spacing.md,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: colors.primaryContrast,
+    fontSize: 11,
+    fontWeight: '700',
   },
   searchWrap: {
     minHeight: 48,
@@ -206,6 +246,9 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: spacing.xl,
+  },
+  listWithCart: {
+    paddingBottom: 120,
   },
   separator: {
     height: spacing.md,
