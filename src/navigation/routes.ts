@@ -5,6 +5,7 @@ export const routes = {
   restaurant: (id: string) => `/(app)/restaurant/${id}`,
   cart: '/(app)/cart',
   checkout: '/(app)/checkout',
+  orders: '/(app)/orders',
   order: (id: string) => `/(app)/order/${id}`,
 } as const;
 

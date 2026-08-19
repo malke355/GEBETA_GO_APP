@@ -26,6 +26,7 @@ export type { CartLine, CartRestaurant, CartState } from './cart';
 export type {
   CreateOrderResponse,
   Order,
+  OrderListResponse,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,

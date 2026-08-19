@@ -11,6 +11,8 @@ export const endpoints = {
   },
   orders: {
     create: '/api/orders',
+    mine: '/api/orders/my-orders',
     detail: (id: string) => `/api/orders/${id}`,
+    cancel: (id: string) => `/api/orders/${id}/cancel`,
   },
 } as const;

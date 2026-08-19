@@ -44,9 +44,18 @@ export type Order = {
   status: OrderStatus;
   deliveryAddress: string;
   createdAt: string;
+  driverName?: string;
+  driverPhone?: string;
+  deliveredAt?: string;
+  etaMinutes?: number;
 };
 
 export type CreateOrderResponse = {
   success: boolean;
   data: Order & { _id?: string };
+};
+
+export type OrderListResponse = {
+  success: boolean;
+  data: Array<Order & { _id?: string }>;
 };

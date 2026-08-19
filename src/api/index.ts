@@ -4,4 +4,4 @@ export { ApiError, getApiErrorMessage } from './errors';
 export { getAuthToken, setAuthToken } from './token';
 export { loginRequest, registerRequest, fetchCurrentUser } from './auth';
 export { listRestaurants, getRestaurant, normalizeRestaurant } from './restaurants';
-export { createOrder, getOrder } from './orders';
+export { cancelOrder, createOrder, getOrder, listMyOrders } from './orders';

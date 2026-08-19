@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,12 +10,14 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, type Href } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { listMyOrders } from '@/api/orders';
 import { AppText, Button } from '@/components';
 import { CartBar, useCart } from '@/features/cart';
+import { isActiveOrderStatus, statusHeadline } from '@/features/orders';
 import { routes } from '@/navigation';
 import { colors, spacing, typography } from '@/theme';
-import type { Restaurant } from '@/types';
+import type { Order, Restaurant } from '@/types';
 import { RestaurantCard } from './RestaurantCard';
 import { useRestaurants } from './useRestaurants';
 
@@ -50,6 +52,32 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
   const { restaurants, loading, error, refresh } = useRestaurants();
   const [query, setQuery] = useState('');
   const [cuisine, setCuisine] = useState(ALL_CUISINES);
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      const loadActiveOrder = async () => {
+        try {
+          const orders = await listMyOrders();
+          if (!cancelled) {
+            setActiveOrder(orders.find((order) => isActiveOrderStatus(order.status)) ?? null);
+          }
+        } catch {
+          if (!cancelled) {
+            setActiveOrder(null);
+          }
+        }
+      };
+
+      void loadActiveOrder();
+
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const cuisines = useMemo(() => {
     const unique = [...new Set(restaurants.map((restaurant) => restaurant.cuisineType))];
@@ -75,6 +103,14 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
         </View>
         <View style={styles.headerActions}>
           <Pressable
+            onPress={() => router.push(routes.orders)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Open orders"
+          >
+            <Ionicons name="receipt-outline" size={24} color={colors.text} />
+          </Pressable>
+          <Pressable
             onPress={() => router.push(routes.cart)}
             hitSlop={8}
             accessibilityRole="button"
@@ -92,6 +128,21 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
           </Pressable>
         </View>
       </View>
+
+      {activeOrder ? (
+        <Pressable
+          onPress={() => router.push(routes.order(activeOrder.id) as Href)}
+          style={styles.trackBanner}
+        >
+          <View style={styles.trackCopy}>
+            <AppText style={styles.trackTitle}>Track your {activeOrder.restaurantName} order</AppText>
+            <AppText variant="caption" muted>
+              {statusHeadline(activeOrder.status)}
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+        </Pressable>
+      ) : null}
 
       <View style={styles.searchWrap}>
         <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -185,6 +236,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  trackBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: '#FFF7ED',
+  },
+  trackCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  trackTitle: {
+    fontWeight: '700',
   },
   badge: {
     position: 'absolute',
