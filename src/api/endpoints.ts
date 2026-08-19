@@ -5,4 +5,7 @@ export const endpoints = {
     register: '/api/auth/register',
     me: '/api/auth/me',
   },
+  restaurants: {
+    list: '/api/restaurants',
+  },
 } as const;

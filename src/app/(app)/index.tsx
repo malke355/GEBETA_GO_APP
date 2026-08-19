@@ -1,35 +1,23 @@
-import { StyleSheet, View } from 'react-native';
-import { AppText, Button, Screen } from '@/components';
-import { APP_NAME, env } from '@/config';
+import { Screen } from '@/components';
 import { useAuth } from '@/features/auth';
-import { spacing } from '@/theme';
+import { CustomerHomeScreen, RoleHomePlaceholder } from '@/features/customer';
 
 export default function AppHomeScreen() {
   const { user, logout } = useAuth();
 
+  if (!user) {
+    return null;
+  }
+
+  if (user.role === 'customer') {
+    return (
+      <Screen padded={false}>
+        <CustomerHomeScreen customerName={user.name} onLogout={() => void logout()} />
+      </Screen>
+    );
+  }
+
   return (
-    <Screen>
-      <View style={styles.header}>
-        <AppText variant="title">{APP_NAME}</AppText>
-        <AppText muted>
-          Signed in as {user?.name} ({user?.role})
-        </AppText>
-      </View>
-      <AppText muted>
-        {env.useMockApi
-          ? 'Running with mock data so screens can be built before the backend is connected.'
-          : 'Connected to the GebetaGo API.'}
-      </AppText>
-      <AppText muted>
-        Customer browsing, cart, and orders will be added in the next tasks.
-      </AppText>
-      <Button label="Log out" variant="secondary" onPress={() => void logout()} />
-    </Screen>
+    <RoleHomePlaceholder name={user.name} role={user.role} onLogout={() => void logout()} />
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    gap: spacing.xs,
-  },
-});

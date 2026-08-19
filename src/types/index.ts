@@ -18,3 +18,5 @@ export type {
   RegisterInput,
   UserRole,
 } from './auth';
+
+export type { MenuItem, Restaurant, RestaurantListResponse } from './restaurant';
