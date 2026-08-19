@@ -17,6 +17,7 @@ export type Restaurant = {
   ratingCount: number;
   deliveryTime: number;
   deliveryFee: number;
+  ownerId?: string;
   isSuspended?: boolean;
   location: {
     address: string;
@@ -24,6 +25,19 @@ export type Restaurant = {
     lng: number;
   };
   menu: MenuItem[];
+};
+
+export type CreateRestaurantInput = {
+  name: string;
+  cuisineType: string;
+  address: string;
+};
+
+export type AddMenuItemInput = {
+  itemName: string;
+  price: number;
+  description: string;
+  category: string;
 };
 
 export type RestaurantListResponse = {

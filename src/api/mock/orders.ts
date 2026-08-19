@@ -1,21 +1,13 @@
 import { getJsonItem, setJsonItem } from '@/storage/asyncStorage';
 import { delay } from './delay';
 import { ApiError } from '@/api/errors';
+import { MOCK_RESTAURANTS } from './restaurants';
+import { findRestaurantByOwnerId } from './restaurantStore';
+import { getCurrentMockUser } from './users';
 import type { Order, OrderStatus, PlaceOrderInput } from '@/types';
 
 const ORDERS_KEY = 'gebetago.orders';
-const MOCK_DRIVER = { name: 'Amanuel Tesfaye', phone: '+251922222222' };
-
-const PROGRESSION: Array<{ status: OrderStatus; afterMs: number }> = [
-  { status: 'placed', afterMs: 0 },
-  { status: 'confirmed', afterMs: 8_000 },
-  { status: 'prepared', afterMs: 20_000 },
-  { status: 'dispatched', afterMs: 32_000 },
-  { status: 'picked_up', afterMs: 44_000 },
-  { status: 'delivered', afterMs: 58_000 },
-];
-
-const DELIVERED_AFTER_MS = 58_000;
+const KITCHEN_SEED_KEY = 'gebetago.kitchenSeeded';
 
 async function readOrders(): Promise<Order[]> {
   return (await getJsonItem<Order[]>(ORDERS_KEY)) ?? [];
@@ -25,82 +17,110 @@ async function writeOrders(orders: Order[]): Promise<void> {
   await setJsonItem(ORDERS_KEY, orders);
 }
 
-function statusFromElapsed(elapsedMs: number): OrderStatus {
-  let status: OrderStatus = 'placed';
-  for (const step of PROGRESSION) {
-    if (elapsedMs >= step.afterMs) {
-      status = step.status;
-    }
-  }
-  return status;
+function customerOwnsOrder(order: Order, userId: string): boolean {
+  return (order.customerId ?? 'customer-1') === userId;
 }
 
-function etaMinutesFor(order: Order): number | undefined {
-  if (order.status === 'delivered' || order.status === 'cancelled') {
-    return undefined;
+async function requireUser() {
+  const user = await getCurrentMockUser();
+  if (!user) {
+    throw new ApiError({
+      message: 'Not authorized',
+      status: 401,
+      payload: null,
+    });
   }
-
-  const elapsed = Date.now() - Date.parse(order.createdAt);
-  if (!Number.isFinite(elapsed)) {
-    return undefined;
-  }
-
-  return Math.max(1, Math.ceil((DELIVERED_AFTER_MS - elapsed) / 60_000));
+  return user;
 }
 
-function applyMockProgress(order: Order): Order {
-  if (order.status === 'cancelled' || order.status === 'delivered') {
-    return order;
+async function requireOwnedRestaurant() {
+  const user = await requireUser();
+  const restaurant = await findRestaurantByOwnerId(user.id);
+  if (!restaurant) {
+    throw new ApiError({
+      message: 'No restaurant profile found for this account',
+      status: 404,
+      payload: null,
+    });
   }
-
-  const elapsed = Date.now() - Date.parse(order.createdAt);
-  if (!Number.isFinite(elapsed)) {
-    return order;
-  }
-
-  const nextStatus = statusFromElapsed(elapsed);
-  const needsDriver =
-    nextStatus === 'dispatched' || nextStatus === 'picked_up' || nextStatus === 'delivered';
-  const nextDriverName = needsDriver ? MOCK_DRIVER.name : order.driverName;
-  const nextDriverPhone = needsDriver ? MOCK_DRIVER.phone : order.driverPhone;
-  const nextPaymentStatus =
-    nextStatus === 'delivered' && order.paymentMethod === 'cash' ? 'paid' : order.paymentStatus;
-  const nextDeliveredAt =
-    nextStatus === 'delivered'
-      ? (order.deliveredAt ?? new Date(Date.parse(order.createdAt) + DELIVERED_AFTER_MS).toISOString())
-      : order.deliveredAt;
-
-  if (
-    nextStatus === order.status &&
-    nextDriverName === order.driverName &&
-    nextDriverPhone === order.driverPhone &&
-    nextPaymentStatus === order.paymentStatus &&
-    nextDeliveredAt === order.deliveredAt
-  ) {
-    return order;
-  }
-
-  return {
-    ...order,
-    status: nextStatus,
-    driverName: nextDriverName,
-    driverPhone: nextDriverPhone,
-    paymentStatus: nextPaymentStatus,
-    deliveredAt: nextDeliveredAt,
-  };
+  return { user, restaurant };
 }
 
-async function persistProgress(orders: Order[]): Promise<Order[]> {
-  const progressed = orders.map(applyMockProgress);
-  const changed = progressed.some((order, index) => order !== orders[index]);
-  if (changed) {
-    await writeOrders(progressed);
+async function ensureKitchenSeed(): Promise<void> {
+  if (await getJsonItem<boolean>(KITCHEN_SEED_KEY)) {
+    return;
   }
-  return progressed.map((order) => ({ ...order, etaMinutes: etaMinutesFor(order) }));
+
+  const lucy = MOCK_RESTAURANTS.find((restaurant) => restaurant.id === 'restaurant-lucy');
+  const firstItem = lucy?.menu[0];
+  const secondItem = lucy?.menu[1];
+  if (!lucy || !firstItem || !secondItem) {
+    await setJsonItem(KITCHEN_SEED_KEY, true);
+    return;
+  }
+
+  const now = Date.now();
+  const demoOrders: Order[] = [
+    {
+      id: `order-kitchen-${now}`,
+      restaurantId: lucy.id,
+      restaurantName: lucy.name,
+      customerId: 'demo-kitchen',
+      customerName: 'Solomon Alula',
+      customerPhone: '+251911111111',
+      items: [
+        {
+          menuItemId: firstItem.id,
+          itemName: firstItem.itemName,
+          price: firstItem.price,
+          quantity: 1,
+          imageUrl: firstItem.imageUrl,
+        },
+      ],
+      subtotal: firstItem.price,
+      deliveryFee: lucy.deliveryFee,
+      totalAmount: firstItem.price + lucy.deliveryFee,
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'placed',
+      deliveryAddress: 'Addis Ababa, Bole Atlas',
+      createdAt: new Date(now - 60_000).toISOString(),
+    },
+    {
+      id: `order-kitchen-${now + 1}`,
+      restaurantId: lucy.id,
+      restaurantName: lucy.name,
+      customerId: 'demo-kitchen',
+      customerName: 'Solomon Alula',
+      customerPhone: '+251911111111',
+      items: [
+        {
+          menuItemId: secondItem.id,
+          itemName: secondItem.itemName,
+          price: secondItem.price,
+          quantity: 2,
+          imageUrl: secondItem.imageUrl,
+        },
+      ],
+      subtotal: secondItem.price * 2,
+      deliveryFee: lucy.deliveryFee,
+      totalAmount: secondItem.price * 2 + lucy.deliveryFee,
+      paymentMethod: 'telebirr',
+      paymentStatus: 'proof_submitted',
+      status: 'confirmed',
+      deliveryAddress: 'Addis Ababa, Bole Atlas',
+      createdAt: new Date(now - 120_000).toISOString(),
+    },
+  ];
+
+  const orders = await readOrders();
+  await writeOrders([...demoOrders, ...orders]);
+  await setJsonItem(KITCHEN_SEED_KEY, true);
 }
 
 export async function mockCreateOrder(input: PlaceOrderInput): Promise<Order> {
   await delay(500);
+  const user = await requireUser();
 
   if (!input.items.length) {
     throw new ApiError({
@@ -122,6 +142,9 @@ export async function mockCreateOrder(input: PlaceOrderInput): Promise<Order> {
     id: `order-${Date.now()}`,
     restaurantId: input.restaurantId,
     restaurantName: input.restaurantName,
+    customerId: user.id,
+    customerName: user.name,
+    customerPhone: user.phone,
     items: input.items.map((item) => ({
       menuItemId: item.menuItemId,
       itemName: item.itemName,
@@ -137,7 +160,6 @@ export async function mockCreateOrder(input: PlaceOrderInput): Promise<Order> {
     status: 'placed',
     deliveryAddress: input.deliveryAddress.trim(),
     createdAt: new Date().toISOString(),
-    etaMinutes: Math.max(1, Math.ceil(DELIVERED_AFTER_MS / 60_000)),
   };
 
   const orders = await readOrders();
@@ -147,19 +169,101 @@ export async function mockCreateOrder(input: PlaceOrderInput): Promise<Order> {
 
 export async function mockListMyOrders(): Promise<Order[]> {
   await delay(200);
-  return persistProgress(await readOrders());
+  const user = await requireUser();
+  const orders = await readOrders();
+  return orders.filter((order) => customerOwnsOrder(order, user.id));
+}
+
+export async function mockListRestaurantOrders(): Promise<Order[]> {
+  await delay(200);
+  await ensureKitchenSeed();
+  const { restaurant } = await requireOwnedRestaurant();
+  const orders = await readOrders();
+  return orders.filter((order) => order.restaurantId === restaurant.id);
 }
 
 export async function mockGetOrder(id: string): Promise<Order | null> {
   await delay(150);
-  const orders = await persistProgress(await readOrders());
+  const orders = await readOrders();
   return orders.find((order) => order.id === id) ?? null;
+}
+
+export async function mockUpdateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
+  await delay(300);
+  const { restaurant } = await requireOwnedRestaurant();
+  const orders = await readOrders();
+  const order = orders.find((item) => item.id === id);
+
+  if (!order || order.restaurantId !== restaurant.id) {
+    throw new ApiError({
+      message: 'Order not found',
+      status: 404,
+      payload: null,
+    });
+  }
+
+  if (['delivered', 'cancelled'].includes(order.status)) {
+    throw new ApiError({
+      message: `This order is already ${order.status}`,
+      status: 400,
+      payload: null,
+    });
+  }
+
+  if (status === 'confirmed' && order.status !== 'placed') {
+    throw new ApiError({
+      message: 'Only a new order can be confirmed',
+      status: 400,
+      payload: null,
+    });
+  }
+
+  if (status === 'prepared' && order.status !== 'confirmed') {
+    throw new ApiError({
+      message: 'Confirm the order before marking it prepared',
+      status: 400,
+      payload: null,
+    });
+  }
+
+  if (status !== 'confirmed' && status !== 'prepared') {
+    throw new ApiError({
+      message: 'Unsupported status transition',
+      status: 400,
+      payload: null,
+    });
+  }
+
+  const updated: Order = { ...order, status };
+  await writeOrders(orders.map((item) => (item.id === id ? updated : item)));
+  return updated;
+}
+
+export async function mockVerifyPayment(id: string): Promise<Order> {
+  await delay(300);
+  const { restaurant } = await requireOwnedRestaurant();
+  const orders = await readOrders();
+  const order = orders.find((item) => item.id === id);
+
+  if (!order || order.restaurantId !== restaurant.id) {
+    throw new ApiError({
+      message: 'Order not found',
+      status: 404,
+      payload: null,
+    });
+  }
+
+  const updated: Order = { ...order, paymentStatus: 'verified' };
+  await writeOrders(orders.map((item) => (item.id === id ? updated : item)));
+  return updated;
 }
 
 export async function mockCancelOrder(id: string): Promise<Order> {
   await delay(300);
-  const orders = await persistProgress(await readOrders());
+  const user = await requireUser();
+  const orders = await readOrders();
   const order = orders.find((item) => item.id === id);
+
   if (!order) {
     throw new ApiError({
       message: 'Order not found',
@@ -168,10 +272,41 @@ export async function mockCancelOrder(id: string): Promise<Order> {
     });
   }
 
-  if (order.status !== 'placed') {
+  if (user.role === 'customer') {
+    if (!customerOwnsOrder(order, user.id)) {
+      throw new ApiError({
+        message: 'Not authorized to cancel this order',
+        status: 403,
+        payload: null,
+      });
+    }
+    if (order.status !== 'placed') {
+      throw new ApiError({
+        message: 'This order can no longer be cancelled because the restaurant has accepted it',
+        status: 400,
+        payload: null,
+      });
+    }
+  } else if (user.role === 'restaurant') {
+    const restaurant = await findRestaurantByOwnerId(user.id);
+    if (!restaurant || order.restaurantId !== restaurant.id) {
+      throw new ApiError({
+        message: 'Not authorized to cancel this order',
+        status: 403,
+        payload: null,
+      });
+    }
+    if (!['placed', 'confirmed'].includes(order.status)) {
+      throw new ApiError({
+        message: 'This order can no longer be cancelled',
+        status: 400,
+        payload: null,
+      });
+    }
+  } else if (user.role !== 'admin') {
     throw new ApiError({
-      message: 'This order can no longer be cancelled because the restaurant has accepted it',
-      status: 400,
+      message: 'Not authorized to cancel this order',
+      status: 403,
       payload: null,
     });
   }

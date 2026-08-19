@@ -1,6 +1,7 @@
 import { Screen } from '@/components';
 import { useAuth } from '@/features/auth';
 import { CustomerHomeScreen, RoleHomePlaceholder } from '@/features/customer';
+import { RestaurantDashboardScreen } from '@/features/restaurant';
 
 export default function AppHomeScreen() {
   const { user, logout } = useAuth();
@@ -13,6 +14,14 @@ export default function AppHomeScreen() {
     return (
       <Screen padded={false}>
         <CustomerHomeScreen customerName={user.name} onLogout={() => void logout()} />
+      </Screen>
+    );
+  }
+
+  if (user.role === 'restaurant') {
+    return (
+      <Screen padded={false}>
+        <RestaurantDashboardScreen ownerName={user.name} onLogout={() => void logout()} />
       </Screen>
     );
   }

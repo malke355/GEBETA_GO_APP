@@ -44,6 +44,9 @@ export type Order = {
   status: OrderStatus;
   deliveryAddress: string;
   createdAt: string;
+  customerId?: string;
+  customerName?: string;
+  customerPhone?: string;
   driverName?: string;
   driverPhone?: string;
   deliveredAt?: string;

@@ -19,7 +19,14 @@ export type {
   UserRole,
 } from './auth';
 
-export type { MenuItem, Restaurant, RestaurantDetailResponse, RestaurantListResponse } from './restaurant';
+export type {
+  AddMenuItemInput,
+  CreateRestaurantInput,
+  MenuItem,
+  Restaurant,
+  RestaurantDetailResponse,
+  RestaurantListResponse,
+} from './restaurant';
 
 export type { CartLine, CartRestaurant, CartState } from './cart';
 

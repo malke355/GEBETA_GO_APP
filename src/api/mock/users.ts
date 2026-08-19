@@ -1,3 +1,4 @@
+import { getAuthToken } from '@/api/token';
 import { getStoredItem, setStoredItem } from '@/storage/secureStorage';
 import type { AuthUser, UserRole } from '@/types';
 
@@ -124,6 +125,12 @@ export function createMockToken(userId: string): string {
 
 export function readMockUserIdFromToken(token: string): string | null {
   return token.startsWith('mock:') ? token.slice('mock:'.length) : null;
+}
+
+export async function getCurrentMockUser(): Promise<MockUser | undefined> {
+  const token = await getAuthToken();
+  const userId = token ? readMockUserIdFromToken(token) : null;
+  return userId ? findMockUserById(userId) : undefined;
 }
 
 export { toPublicUser };

@@ -27,7 +27,7 @@ export function RoleHomePlaceholder({ name, role, onLogout }: RoleHomePlaceholde
         </AppText>
       </View>
       <AppText muted>
-        The {ROLE_LABELS[role].toLowerCase()} dashboard will be built after the customer ordering flow.
+        The {ROLE_LABELS[role].toLowerCase()} dashboard will be built next.
       </AppText>
       <Button label="Log out" variant="secondary" onPress={onLogout} />
     </Screen>

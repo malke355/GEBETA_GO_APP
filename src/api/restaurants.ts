@@ -1,12 +1,25 @@
 import { env } from '@/config/env';
-import { mockGetRestaurant, mockListRestaurants } from '@/api/mock/listRestaurants';
+import {
+  mockAddMenuItem,
+  mockCreateRestaurant,
+  mockGetMyRestaurant,
+  mockGetRestaurant,
+  mockListRestaurants,
+} from '@/api/mock/listRestaurants';
 import { api } from './client';
 import { endpoints } from './endpoints';
 import { ApiError } from './errors';
-import type { MenuItem, Restaurant, RestaurantDetailResponse, RestaurantListResponse } from '@/types/restaurant';
+import type {
+  AddMenuItemInput,
+  CreateRestaurantInput,
+  MenuItem,
+  Restaurant,
+  RestaurantDetailResponse,
+  RestaurantListResponse,
+} from '@/types/restaurant';
 
 type RawMenuItem = MenuItem & { _id?: string };
-type RawRestaurant = Restaurant & { _id?: string; menu?: RawMenuItem[] };
+type RawRestaurant = Restaurant & { _id?: string; ownerId?: string; menu?: RawMenuItem[] };
 
 function normalizeMenuItem(item: RawMenuItem, index: number): MenuItem {
   return {
@@ -30,6 +43,7 @@ export function normalizeRestaurant(raw: RawRestaurant): Restaurant {
     ratingCount: raw.ratingCount ?? 0,
     deliveryTime: raw.deliveryTime,
     deliveryFee: raw.deliveryFee,
+    ownerId: raw.ownerId,
     isSuspended: raw.isSuspended,
     location: raw.location,
     menu: (raw.menu ?? []).map(normalizeMenuItem),
@@ -62,5 +76,32 @@ export async function getRestaurant(id: string): Promise<Restaurant> {
   }
 
   const response = await api.get<RestaurantDetailResponse>(endpoints.restaurants.detail(id));
+  return normalizeRestaurant(response.data);
+}
+
+export async function getMyRestaurant(): Promise<Restaurant | null> {
+  if (env.useMockApi) {
+    return mockGetMyRestaurant();
+  }
+
+  const response = await api.get<RestaurantDetailResponse>(endpoints.restaurants.mine);
+  return response.data ? normalizeRestaurant(response.data) : null;
+}
+
+export async function createRestaurant(input: CreateRestaurantInput): Promise<Restaurant> {
+  if (env.useMockApi) {
+    return mockCreateRestaurant(input);
+  }
+
+  const response = await api.post<RestaurantDetailResponse>(endpoints.restaurants.create, input);
+  return normalizeRestaurant(response.data);
+}
+
+export async function addMenuItem(input: AddMenuItemInput): Promise<Restaurant> {
+  if (env.useMockApi) {
+    return mockAddMenuItem(input);
+  }
+
+  const response = await api.post<RestaurantDetailResponse>(endpoints.restaurants.addMenu, input);
   return normalizeRestaurant(response.data);
 }

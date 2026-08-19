@@ -1,14 +1,34 @@
 import { env } from '@/config/env';
-import { mockCancelOrder, mockCreateOrder, mockGetOrder, mockListMyOrders } from '@/api/mock/orders';
+import {
+  mockCancelOrder,
+  mockCreateOrder,
+  mockGetOrder,
+  mockListMyOrders,
+  mockListRestaurantOrders,
+  mockUpdateOrderStatus,
+  mockVerifyPayment,
+} from '@/api/mock/orders';
 import { api } from './client';
 import { endpoints } from './endpoints';
 import { ApiError } from './errors';
-import type { CartLine, CreateOrderResponse, Order, OrderListResponse, PlaceOrderInput } from '@/types';
+import type { CartLine, CreateOrderResponse, Order, OrderListResponse, OrderStatus, PlaceOrderInput } from '@/types';
 
 type RawRestaurantRef = string | { _id?: string; name?: string };
 type RawDriverRef = string | { name?: string; phone?: string };
+type RawCustomerRef = string | { _id?: string; name?: string; phone?: string };
 
-type RawOrder = Omit<Order, 'id' | 'restaurantId' | 'restaurantName' | 'createdAt' | 'driverName' | 'driverPhone'> & {
+type RawOrder = Omit<
+  Order,
+  | 'id'
+  | 'restaurantId'
+  | 'restaurantName'
+  | 'createdAt'
+  | 'driverName'
+  | 'driverPhone'
+  | 'customerId'
+  | 'customerName'
+  | 'customerPhone'
+> & {
   id?: string;
   _id?: string;
   restaurantId?: RawRestaurantRef;
@@ -18,6 +38,9 @@ type RawOrder = Omit<Order, 'id' | 'restaurantId' | 'restaurantName' | 'createdA
   driverId?: RawDriverRef;
   driverName?: string;
   driverPhone?: string;
+  customerId?: RawCustomerRef;
+  customerName?: string;
+  customerPhone?: string;
 };
 
 function normalizeOrder(raw: RawOrder): Order {
@@ -38,6 +61,18 @@ function normalizeOrder(raw: RawOrder): Order {
   const driverPhone =
     raw.driverPhone ?? (typeof driverRef === 'object' && driverRef ? driverRef.phone : undefined);
 
+  const customerRef = raw.customerId;
+  const customerId =
+    typeof customerRef === 'string'
+      ? customerRef
+      : customerRef?._id
+        ? String(customerRef._id)
+        : undefined;
+  const customerName =
+    raw.customerName ?? (typeof customerRef === 'object' && customerRef ? customerRef.name : undefined);
+  const customerPhone =
+    raw.customerPhone ?? (typeof customerRef === 'object' && customerRef ? customerRef.phone : undefined);
+
   return {
     id: String(raw.id ?? raw._id),
     restaurantId,
@@ -54,6 +89,9 @@ function normalizeOrder(raw: RawOrder): Order {
       typeof raw.createdAt === 'string'
         ? raw.createdAt
         : new Date(raw.createdAt ?? Date.now()).toISOString(),
+    customerId,
+    customerName,
+    customerPhone,
     driverName,
     driverPhone,
     deliveredAt:
@@ -100,6 +138,15 @@ export async function listMyOrders(): Promise<Order[]> {
   return (response.data ?? []).map(normalizeOrder);
 }
 
+export async function listRestaurantOrders(): Promise<Order[]> {
+  if (env.useMockApi) {
+    return mockListRestaurantOrders();
+  }
+
+  const response = await api.get<OrderListResponse>(endpoints.orders.restaurant);
+  return (response.data ?? []).map(normalizeOrder);
+}
+
 export async function getOrder(id: string): Promise<Order> {
   if (env.useMockApi) {
     const order = await mockGetOrder(id);
@@ -114,6 +161,24 @@ export async function getOrder(id: string): Promise<Order> {
   }
 
   const response = await api.get<CreateOrderResponse>(endpoints.orders.detail(id));
+  return normalizeOrder(response.data);
+}
+
+export async function updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
+  if (env.useMockApi) {
+    return mockUpdateOrderStatus(id, status);
+  }
+
+  const response = await api.put<CreateOrderResponse>(endpoints.orders.status(id), { status });
+  return normalizeOrder(response.data);
+}
+
+export async function verifyOrderPayment(id: string): Promise<Order> {
+  if (env.useMockApi) {
+    return mockVerifyPayment(id);
+  }
+
+  const response = await api.put<CreateOrderResponse>(endpoints.orders.verifyPayment(id), {});
   return normalizeOrder(response.data);
 }
 

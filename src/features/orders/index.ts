@@ -1,3 +1,3 @@
 export { OrderTrackingScreen } from './OrderTrackingScreen';
 export { OrdersListScreen } from './OrdersListScreen';
-export { isActiveOrderStatus, statusHeadline, statusLabel } from './orderStatus';
+export { PAYMENT_LABELS, isActiveOrderStatus, statusHeadline, statusLabel } from './orderStatus';
