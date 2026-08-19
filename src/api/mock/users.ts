@@ -16,6 +16,7 @@ export const DEMO_USERS: MockUser[] = [
     password: DEMO_PASSWORD,
     role: 'customer',
     phone: '+251911111111',
+    address: 'Addis Ababa, Bole Atlas',
   },
   {
     id: 'driver-1',

@@ -22,3 +22,12 @@ export type {
 export type { MenuItem, Restaurant, RestaurantDetailResponse, RestaurantListResponse } from './restaurant';
 
 export type { CartLine, CartRestaurant, CartState } from './cart';
+
+export type {
+  CreateOrderResponse,
+  Order,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  PlaceOrderInput,
+} from './order';

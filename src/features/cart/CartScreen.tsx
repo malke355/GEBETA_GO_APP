@@ -80,10 +80,7 @@ export function CartScreen() {
               <AppText style={styles.totalLabel}>Total</AppText>
               <AppText style={styles.totalLabel}>ETB {totalAmount}</AppText>
             </View>
-            <Button label="Checkout" disabled />
-            <AppText variant="caption" muted style={styles.note}>
-              Checkout will be added in the next task.
-            </AppText>
+            <Button label="Checkout" onPress={() => router.push(routes.checkout)} />
           </View>
         </>
       )}
@@ -176,8 +173,5 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontWeight: '700',
-  },
-  note: {
-    textAlign: 'center',
   },
 });
