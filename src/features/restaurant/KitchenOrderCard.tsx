@@ -69,6 +69,11 @@ export function KitchenOrderCard({ order, onUpdated }: KitchenOrderCardProps) {
           Waiting for a courier to pick this up.
         </AppText>
       ) : null}
+      {order.status === 'dispatched' || order.status === 'picked_up' ? (
+        <AppText variant="caption" muted>
+          {order.driverName ? `${order.driverName} is handling this order.` : 'A courier is handling this order.'}
+        </AppText>
+      ) : null}
 
       <View style={styles.actions}>
         {order.paymentStatus === 'proof_submitted' ? (

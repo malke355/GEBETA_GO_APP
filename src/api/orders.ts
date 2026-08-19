@@ -1,8 +1,12 @@
 import { env } from '@/config/env';
 import {
+  mockAcceptJob,
   mockCancelOrder,
   mockCreateOrder,
+  mockGetActiveDelivery,
   mockGetOrder,
+  mockListAvailableJobs,
+  mockListDriverHistory,
   mockListMyOrders,
   mockListRestaurantOrders,
   mockUpdateOrderStatus,
@@ -11,10 +15,20 @@ import {
 import { api } from './client';
 import { endpoints } from './endpoints';
 import { ApiError } from './errors';
-import type { CartLine, CreateOrderResponse, Order, OrderListResponse, OrderStatus, PlaceOrderInput } from '@/types';
+import type {
+  ActiveDeliveryResponse,
+  CartLine,
+  CreateOrderResponse,
+  DriverHistory,
+  DriverHistoryResponse,
+  Order,
+  OrderListResponse,
+  OrderStatus,
+  PlaceOrderInput,
+} from '@/types';
 
 type RawRestaurantRef = string | { _id?: string; name?: string };
-type RawDriverRef = string | { name?: string; phone?: string };
+type RawDriverRef = string | { _id?: string; name?: string; phone?: string };
 type RawCustomerRef = string | { _id?: string; name?: string; phone?: string };
 
 type RawOrder = Omit<
@@ -23,6 +37,7 @@ type RawOrder = Omit<
   | 'restaurantId'
   | 'restaurantName'
   | 'createdAt'
+  | 'driverId'
   | 'driverName'
   | 'driverPhone'
   | 'customerId'
@@ -56,6 +71,12 @@ function normalizeOrder(raw: RawOrder): Order {
     'Restaurant';
 
   const driverRef = raw.driverId;
+  const driverId =
+    typeof driverRef === 'string'
+      ? driverRef
+      : driverRef && typeof driverRef === 'object' && '_id' in driverRef && driverRef._id
+        ? String(driverRef._id)
+        : undefined;
   const driverName =
     raw.driverName ?? (typeof driverRef === 'object' && driverRef ? driverRef.name : undefined);
   const driverPhone =
@@ -92,8 +113,10 @@ function normalizeOrder(raw: RawOrder): Order {
     customerId,
     customerName,
     customerPhone,
+    driverId,
     driverName,
     driverPhone,
+    restaurantAddress: raw.restaurantAddress,
     deliveredAt:
       raw.deliveredAt === undefined
         ? undefined
@@ -145,6 +168,46 @@ export async function listRestaurantOrders(): Promise<Order[]> {
 
   const response = await api.get<OrderListResponse>(endpoints.orders.restaurant);
   return (response.data ?? []).map(normalizeOrder);
+}
+
+export async function listAvailableJobs(): Promise<Order[]> {
+  if (env.useMockApi) {
+    return mockListAvailableJobs();
+  }
+
+  const response = await api.get<OrderListResponse>(endpoints.orders.driverAvailable);
+  return (response.data ?? []).map(normalizeOrder);
+}
+
+export async function getActiveDelivery(): Promise<Order | null> {
+  if (env.useMockApi) {
+    return mockGetActiveDelivery();
+  }
+
+  const response = await api.get<ActiveDeliveryResponse>(endpoints.orders.driverActive);
+  return response.data ? normalizeOrder(response.data) : null;
+}
+
+export async function listDriverHistory(): Promise<DriverHistory> {
+  if (env.useMockApi) {
+    return mockListDriverHistory();
+  }
+
+  const response = await api.get<DriverHistoryResponse>(endpoints.orders.driverHistory);
+  return {
+    orders: (response.data.orders ?? []).map(normalizeOrder),
+    totalDeliveries: response.data.totalDeliveries,
+    totalEarnings: response.data.totalEarnings,
+  };
+}
+
+export async function acceptJob(id: string): Promise<Order> {
+  if (env.useMockApi) {
+    return mockAcceptJob(id);
+  }
+
+  const response = await api.put<CreateOrderResponse>(endpoints.orders.accept(id), {});
+  return normalizeOrder(response.data);
 }
 
 export async function getOrder(id: string): Promise<Order> {

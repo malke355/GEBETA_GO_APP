@@ -31,7 +31,10 @@ export type {
 export type { CartLine, CartRestaurant, CartState } from './cart';
 
 export type {
+  ActiveDeliveryResponse,
   CreateOrderResponse,
+  DriverHistory,
+  DriverHistoryResponse,
   Order,
   OrderListResponse,
   OrderStatus,

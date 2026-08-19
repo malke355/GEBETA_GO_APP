@@ -47,8 +47,10 @@ export type Order = {
   customerId?: string;
   customerName?: string;
   customerPhone?: string;
+  driverId?: string;
   driverName?: string;
   driverPhone?: string;
+  restaurantAddress?: string;
   deliveredAt?: string;
   etaMinutes?: number;
 };
@@ -61,4 +63,20 @@ export type CreateOrderResponse = {
 export type OrderListResponse = {
   success: boolean;
   data: Array<Order & { _id?: string }>;
+};
+
+export type DriverHistory = {
+  orders: Order[];
+  totalDeliveries: number;
+  totalEarnings: number;
+};
+
+export type DriverHistoryResponse = {
+  success: boolean;
+  data: DriverHistory;
+};
+
+export type ActiveDeliveryResponse = {
+  success: boolean;
+  data: (Order & { _id?: string }) | null;
 };
