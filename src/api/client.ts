@@ -16,12 +16,10 @@ export type RequestOptions = {
   timeoutMs?: number;
 };
 
-function ensureTrailingSlash(base: string): string {
-  return base.endsWith('/') ? base : `${base}/`;
-}
-
 function buildUrl(path: string, query?: RequestQuery): string {
-  const url = new URL(path.replace(/^\//, ''), ensureTrailingSlash(env.apiUrl));
+  const base = env.apiUrl.replace(/\/$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${base}${normalizedPath}`);
 
   if (query) {
     for (const [key, value] of Object.entries(query)) {
@@ -70,11 +68,7 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
       : await response.text();
 
     if (!response.ok) {
-      throw new ApiError({
-        message: `Request failed with status ${response.status}`,
-        status: response.status,
-        payload,
-      });
+      throw ApiError.fromResponse(response.status, payload);
     }
 
     return payload as T;

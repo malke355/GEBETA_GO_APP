@@ -1,10 +1,5 @@
-import { AppText, Screen } from '@/components';
+import { AuthScreen } from '@/features/auth/AuthScreen';
 
-export default function AuthScreen() {
-  return (
-    <Screen>
-      <AppText variant="title">Auth</AppText>
-      <AppText muted>Authentication screens will live in this group.</AppText>
-    </Screen>
-  );
+export default function AuthRoute() {
+  return <AuthScreen />;
 }

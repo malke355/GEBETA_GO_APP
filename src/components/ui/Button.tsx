@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Pressable, StyleSheet, type PressableProps, type View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, type PressableProps, type View } from 'react-native';
 import { colors, spacing } from '@/theme';
 import { AppText } from './AppText';
 
@@ -8,29 +8,36 @@ type ButtonVariant = 'primary' | 'secondary';
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
   variant?: ButtonVariant;
+  loading?: boolean;
 };
 
 export const Button = forwardRef<View, ButtonProps>(function Button(
-  { label, variant = 'primary', disabled, style, ...props },
+  { label, variant = 'primary', disabled, loading = false, style, ...props },
   ref,
 ) {
+  const isDisabled = disabled || loading;
+
   return (
     <Pressable
       ref={ref}
       accessibilityRole="button"
-      disabled={disabled}
+      disabled={isDisabled}
       style={(state) => [
         styles.base,
         styles[variant],
         state.pressed && styles.pressed,
-        disabled && styles.disabled,
+        isDisabled && styles.disabled,
         typeof style === 'function' ? style(state) : style,
       ]}
       {...props}
     >
-      <AppText style={variant === 'primary' ? styles.primaryLabel : styles.secondaryLabel}>
-        {label}
-      </AppText>
+      {loading ? (
+        <ActivityIndicator color={variant === 'primary' ? colors.primaryContrast : colors.text} />
+      ) : (
+        <AppText style={variant === 'primary' ? styles.primaryLabel : styles.secondaryLabel}>
+          {label}
+        </AppText>
+      )}
     </Pressable>
   );
 });

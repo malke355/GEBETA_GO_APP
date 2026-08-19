@@ -1,2 +1,2 @@
-export { AppText, Button } from './ui';
+export { AppText, Button, TextField } from './ui';
 export { Screen } from './layout';

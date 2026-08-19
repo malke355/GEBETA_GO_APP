@@ -1,15 +1,9 @@
-type TokenProvider = () => Promise<string | null> | string | null;
+let currentToken: string | null = null;
 
-let tokenProvider: TokenProvider | null = null;
-
-export function setAuthTokenProvider(provider: TokenProvider): void {
-  tokenProvider = provider;
+export function setAuthToken(token: string | null): void {
+  currentToken = token;
 }
 
 export async function getAuthToken(): Promise<string | null> {
-  if (!tokenProvider) {
-    return null;
-  }
-
-  return tokenProvider();
+  return currentToken;
 }

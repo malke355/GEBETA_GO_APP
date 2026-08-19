@@ -9,3 +9,12 @@ export type ApiFailure = {
   message: string;
   code?: string;
 };
+
+export type {
+  AuthResponse,
+  AuthUser,
+  LoginInput,
+  MeResponse,
+  RegisterInput,
+  UserRole,
+} from './auth';
