@@ -236,9 +236,9 @@ export function AuthScreen() {
             </AppText>
           </Pressable>
 
-          {env.isDev ? (
+          {env.useMockApi ? (
             <AppText variant="caption" muted>
-              Demo: customer@test.com / password123
+              Offline demo mode. Try customer@test.com / password123
             </AppText>
           ) : null}
         </ScrollView>

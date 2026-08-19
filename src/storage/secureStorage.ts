@@ -45,3 +45,11 @@ export async function clearAuthToken(): Promise<void> {
   setAuthToken(null);
   await deleteValue(TOKEN_KEY);
 }
+
+export async function getStoredItem(key: string): Promise<string | null> {
+  return readValue(key);
+}
+
+export async function setStoredItem(key: string, value: string): Promise<void> {
+  await writeValue(key, value);
+}

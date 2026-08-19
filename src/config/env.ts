@@ -36,6 +36,17 @@ function resolveApiUrl(): string {
   return configured;
 }
 
+function readBooleanEnv(key: string, fallback: boolean): boolean {
+  const value = process.env[key];
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+  return fallback;
+}
+
 const appEnv = readAppEnv();
 
 export const env = {
@@ -43,4 +54,5 @@ export const env = {
   apiUrl: resolveApiUrl(),
   apiTimeoutMs: Number(readEnv('EXPO_PUBLIC_API_TIMEOUT_MS', '15000')),
   isDev: appEnv === 'development',
+  useMockApi: readBooleanEnv('EXPO_PUBLIC_USE_MOCK_API', true),
 } as const;
