@@ -1,8 +1,9 @@
 import { env } from '@/config/env';
-import { mockListRestaurants } from '@/api/mock/listRestaurants';
+import { mockGetRestaurant, mockListRestaurants } from '@/api/mock/listRestaurants';
 import { api } from './client';
 import { endpoints } from './endpoints';
-import type { MenuItem, Restaurant, RestaurantListResponse } from '@/types/restaurant';
+import { ApiError } from './errors';
+import type { MenuItem, Restaurant, RestaurantDetailResponse, RestaurantListResponse } from '@/types/restaurant';
 
 type RawMenuItem = MenuItem & { _id?: string };
 type RawRestaurant = Restaurant & { _id?: string; menu?: RawMenuItem[] };
@@ -45,4 +46,21 @@ export async function listRestaurants(): Promise<Restaurant[]> {
     .map(normalizeRestaurant)
     .filter((restaurant) => restaurant.isSuspended !== true)
     .sort((left, right) => right.rating - left.rating);
+}
+
+export async function getRestaurant(id: string): Promise<Restaurant> {
+  if (env.useMockApi) {
+    const restaurant = await mockGetRestaurant(id);
+    if (!restaurant) {
+      throw new ApiError({
+        message: 'Restaurant not found',
+        status: 404,
+        payload: null,
+      });
+    }
+    return restaurant;
+  }
+
+  const response = await api.get<RestaurantDetailResponse>(endpoints.restaurants.detail(id));
+  return normalizeRestaurant(response.data);
 }

@@ -8,3 +8,8 @@ export async function mockListRestaurants(): Promise<Restaurant[]> {
     (left, right) => right.rating - left.rating,
   );
 }
+
+export async function mockGetRestaurant(id: string): Promise<Restaurant | null> {
+  await delay();
+  return MOCK_RESTAURANTS.find((restaurant) => restaurant.id === id) ?? null;
+}

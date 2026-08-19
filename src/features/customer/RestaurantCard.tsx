@@ -1,4 +1,4 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components';
 import { colors, spacing } from '@/theme';
@@ -6,11 +6,12 @@ import type { Restaurant } from '@/types';
 
 type RestaurantCardProps = {
   restaurant: Restaurant;
+  onPress: () => void;
 };
 
-export function RestaurantCard({ restaurant }: RestaurantCardProps) {
+export function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
   return (
-    <View style={styles.card}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <Image source={{ uri: restaurant.imageUrl }} style={styles.image} />
       <View style={styles.body}>
         <AppText variant="body" style={styles.name}>
@@ -43,7 +44,7 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
           {restaurant.location.address}
         </AppText>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -54,6 +55,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  pressed: {
+    opacity: 0.92,
   },
   image: {
     width: '100%',

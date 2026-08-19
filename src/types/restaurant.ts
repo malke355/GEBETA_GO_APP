@@ -31,3 +31,8 @@ export type RestaurantListResponse = {
   count: number;
   data: Array<Restaurant & { _id?: string }>;
 };
+
+export type RestaurantDetailResponse = {
+  success: boolean;
+  data: Restaurant & { _id?: string };
+};

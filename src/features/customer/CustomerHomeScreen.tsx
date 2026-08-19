@@ -10,7 +10,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { AppText, Button } from '@/components';
+import { routes } from '@/navigation';
 import { colors, spacing, typography } from '@/theme';
 import type { Restaurant } from '@/types';
 import { RestaurantCard } from './RestaurantCard';
@@ -42,6 +44,7 @@ type CustomerHomeScreenProps = {
 };
 
 export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScreenProps) {
+  const router = useRouter();
   const { restaurants, loading, error, refresh } = useRestaurants();
   const [query, setQuery] = useState('');
   const [cuisine, setCuisine] = useState(ALL_CUISINES);
@@ -98,7 +101,12 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
         <FlatList
           data={visibleRestaurants}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <RestaurantCard restaurant={item} />}
+          renderItem={({ item }) => (
+            <RestaurantCard
+              restaurant={item}
+              onPress={() => router.push(routes.restaurant(item.id))}
+            />
+          )}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListHeaderComponent={

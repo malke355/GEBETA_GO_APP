@@ -3,4 +3,4 @@ export { endpoints } from './endpoints';
 export { ApiError, getApiErrorMessage } from './errors';
 export { getAuthToken, setAuthToken } from './token';
 export { loginRequest, registerRequest, fetchCurrentUser } from './auth';
-export { listRestaurants, normalizeRestaurant } from './restaurants';
+export { listRestaurants, getRestaurant, normalizeRestaurant } from './restaurants';

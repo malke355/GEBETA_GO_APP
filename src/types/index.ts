@@ -19,4 +19,4 @@ export type {
   UserRole,
 } from './auth';
 
-export type { MenuItem, Restaurant, RestaurantListResponse } from './restaurant';
+export type { MenuItem, Restaurant, RestaurantDetailResponse, RestaurantListResponse } from './restaurant';

@@ -7,5 +7,6 @@ export const endpoints = {
   },
   restaurants: {
     list: '/api/restaurants',
+    detail: (id: string) => `/api/restaurants/${id}`,
   },
 } as const;
