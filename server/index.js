@@ -10,6 +10,8 @@ import { notFound, errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import restaurantRoutes from './routes/restaurantRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
+import createSocketServer from './config/socket.js';
+import { attachIo } from './utils/realtime.js';
 
 await connectDB();
 
@@ -58,16 +60,20 @@ app.use('/api/orders', orderRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
+const io = createSocketServer(server);
+attachIo(app, io);
+
 server.listen(env.PORT, '0.0.0.0', () => {
   console.log(`GebetaGo API running in ${env.NODE_ENV} mode on port ${env.PORT}`);
 });
 
 const shutdown = (signal) => {
   console.log(`${signal} received, shutting down gracefully.`);
+  io.close();
   server.close(() => process.exit(0));
 };
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-export { app, server };
+export { app, server, io };

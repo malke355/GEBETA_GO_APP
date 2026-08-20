@@ -5,6 +5,12 @@ import Restaurant from '../models/Restaurant.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
+import {
+  emitJobAvailable,
+  emitNewOrder,
+  emitOrderUpdate,
+  emitPaymentUpdate,
+} from '../utils/realtime.js';
 
 const router = express.Router();
 
@@ -130,7 +136,9 @@ router.post(
     });
 
     const populated = await order.populate(ORDER_POPULATE);
-    res.status(201).json({ success: true, data: serializeOrder(populated) });
+    const payload = serializeOrder(populated);
+    emitNewOrder(req, payload);
+    res.status(201).json({ success: true, data: payload });
   }),
 );
 
@@ -280,7 +288,9 @@ router.put(
       throw new ApiError(400, 'This job is no longer available');
     }
 
-    res.status(200).json({ success: true, data: serializeOrder(order) });
+    const payload = serializeOrder(order);
+    emitOrderUpdate(req, payload);
+    res.status(200).json({ success: true, data: payload });
   }),
 );
 
@@ -339,7 +349,12 @@ router.put(
 
     await order.save();
     const populated = await order.populate(ORDER_POPULATE);
-    res.status(200).json({ success: true, data: serializeOrder(populated) });
+    const payload = serializeOrder(populated);
+    emitOrderUpdate(req, payload);
+    if (status === 'prepared') {
+      emitJobAvailable(req, payload);
+    }
+    res.status(200).json({ success: true, data: payload });
   }),
 );
 
@@ -365,7 +380,9 @@ router.put(
     await order.save();
 
     const populated = await order.populate(ORDER_POPULATE);
-    res.status(200).json({ success: true, data: serializeOrder(populated) });
+    const payload = serializeOrder(populated);
+    emitPaymentUpdate(req, payload);
+    res.status(200).json({ success: true, data: payload });
   }),
 );
 
@@ -411,7 +428,9 @@ router.put(
     await order.save();
 
     const populated = await order.populate(ORDER_POPULATE);
-    res.status(200).json({ success: true, data: serializeOrder(populated) });
+    const payload = serializeOrder(populated);
+    emitOrderUpdate(req, payload);
+    res.status(200).json({ success: true, data: payload });
   }),
 );
 
