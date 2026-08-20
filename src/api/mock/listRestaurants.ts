@@ -8,7 +8,7 @@ import {
 } from './restaurantStore';
 import { getCurrentMockUser } from './users';
 import { ApiError } from '@/api/errors';
-import type { AddMenuItemInput, CreateRestaurantInput, MenuItem, Restaurant } from '@/types';
+import type { AddMenuItemInput, CreateRestaurantInput, MenuItem, Restaurant, UpdateMenuItemInput, UpdateRestaurantInput } from '@/types';
 
 const DEFAULT_MENU_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
 
@@ -73,7 +73,7 @@ export async function mockCreateRestaurant(input: CreateRestaurantInput): Promis
     name: input.name.trim(),
     cuisineType: input.cuisineType.trim() || 'Ethiopian Traditional',
     city: 'Addis Ababa',
-    imageUrl: defaultRestaurantImage(),
+    imageUrl: input.image?.uri || defaultRestaurantImage(),
     rating: 0,
     ratingCount: 0,
     deliveryTime: 30,
@@ -131,11 +131,71 @@ export async function mockAddMenuItem(input: AddMenuItemInput): Promise<Restaura
     price: input.price,
     description: input.description.trim(),
     category: input.category || 'Traditional',
-    imageUrl: DEFAULT_MENU_IMAGE,
+    imageUrl: input.image?.uri || DEFAULT_MENU_IMAGE,
   };
 
   return saveRestaurant({
     ...restaurant,
     menu: [...restaurant.menu, menuItem],
   });
+}
+
+export async function mockUpdateMenuItem(input: UpdateMenuItemInput): Promise<Restaurant> {
+  await delay(350);
+  const restaurant = await requireOwnedRestaurantForMenu();
+  const menu = restaurant.menu.map((item) =>
+    item.id === input.itemId
+      ? {
+          ...item,
+          itemName: input.itemName.trim(),
+          price: input.price,
+          description: input.description.trim(),
+          category: input.category || item.category,
+          imageUrl: input.image?.uri ?? item.imageUrl,
+        }
+      : item,
+  );
+  return saveRestaurant({ ...restaurant, menu });
+}
+
+export async function mockDeleteMenuItem(itemId: string): Promise<Restaurant> {
+  await delay(250);
+  const restaurant = await requireOwnedRestaurantForMenu();
+  return saveRestaurant({
+    ...restaurant,
+    menu: restaurant.menu.filter((item) => item.id !== itemId),
+  });
+}
+
+export async function mockUpdateRestaurant(input: UpdateRestaurantInput): Promise<Restaurant> {
+  await delay(350);
+  const restaurant = await requireOwnedRestaurantForMenu();
+  return saveRestaurant({
+    ...restaurant,
+    name: input.name?.trim() || restaurant.name,
+    cuisineType: input.cuisineType?.trim() || restaurant.cuisineType,
+    deliveryFee: input.deliveryFee ?? restaurant.deliveryFee,
+    deliveryTime: input.deliveryTime ?? restaurant.deliveryTime,
+    imageUrl: input.image?.uri ?? restaurant.imageUrl,
+    location: {
+      ...restaurant.location,
+      address: input.address?.trim() || restaurant.location.address,
+    },
+  });
+}
+
+async function requireOwnedRestaurantForMenu(): Promise<Restaurant> {
+  const user = await getCurrentMockUser();
+  if (!user) {
+    throw new ApiError({ message: 'Not authorized', status: 401, payload: null });
+  }
+  const restaurant = await findRestaurantByOwnerId(user.id);
+  if (!restaurant) {
+    throw new ApiError({
+      message: 'No restaurant profile found for this account',
+      status: 404,
+      payload: null,
+    });
+  }
+  return restaurant;
 }

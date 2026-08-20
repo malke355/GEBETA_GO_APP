@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,9 +16,9 @@ import {
   listDriverHistory,
   updateOrderStatus,
 } from '@/api/orders';
-import { subscribeRealtime } from '@/api/socket';
+import { emitRealtime, subscribeRealtime } from '@/api/socket';
 import { getApiErrorMessage } from '@/api/errors';
-import { AppText, Button } from '@/components';
+import { AppText, Button, MapPreview } from '@/components';
 import { env } from '@/config';
 import { PAYMENT_LABELS, statusLabel } from '@/features/orders';
 import { colors, spacing } from '@/theme';
@@ -45,6 +45,8 @@ export function DriverDashboardScreen({ driverName, onLogout }: DriverDashboardS
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [simulating, setSimulating] = useState(false);
+  const [sharingGps, setSharingGps] = useState(false);
+  const locationSub = useRef<{ remove: () => void } | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
@@ -101,6 +103,39 @@ export function DriverDashboardScreen({ driverName, onLogout }: DriverDashboardS
     setProgress(0);
     setSimulating(false);
   }, [active?.id, active?.status]);
+
+  useEffect(() => {
+    if (!sharingGps || !active || env.useMockApi) {
+      locationSub.current?.remove();
+      locationSub.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const Location = await import('expo-location');
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted || cancelled) {
+        setSharingGps(false);
+        return;
+      }
+      locationSub.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 4000, distanceInterval: 15 },
+        (position) => {
+          emitRealtime('stream_driver_location', {
+            orderId: active.id,
+            location: { lat: position.coords.latitude, lng: position.coords.longitude },
+          });
+        },
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+      locationSub.current?.remove();
+      locationSub.current = null;
+    };
+  }, [sharingGps, active?.id]);
 
   useEffect(() => {
     if (!simulating || progress >= 100) {
@@ -203,6 +238,16 @@ export function DriverDashboardScreen({ driverName, onLogout }: DriverDashboardS
                 </AppText>
                 <AppText style={styles.strong}>{active.customerName ?? 'Customer'}</AppText>
                 <AppText muted>{active.deliveryAddress}</AppText>
+                {active.restaurantLat && active.restaurantLng ? (
+                  <MapPreview
+                    markers={[
+                      { lat: active.restaurantLat, lng: active.restaurantLng, label: active.restaurantName },
+                      ...(active.deliveryCoordinates
+                        ? [{ lat: active.deliveryCoordinates.lat, lng: active.deliveryCoordinates.lng, label: 'Customer' }]
+                        : []),
+                    ]}
+                  />
+                ) : null}
                 {active.customerPhone ? (
                   <AppText variant="caption" muted>
                     {active.customerPhone}
@@ -253,6 +298,11 @@ export function DriverDashboardScreen({ driverName, onLogout }: DriverDashboardS
                     <View style={styles.progressTrack}>
                       <View style={[styles.progressFill, { width: `${progress}%` }]} />
                     </View>
+                    <Button
+                      label={sharingGps ? 'Sharing GPS...' : 'Share live GPS'}
+                      variant="secondary"
+                      onPress={() => setSharingGps((current) => !current)}
+                    />
                     <Button
                       label={simulating ? 'On the way...' : progress >= 100 ? 'Arrived' : 'Simulate ride'}
                       disabled={simulating || progress >= 100}

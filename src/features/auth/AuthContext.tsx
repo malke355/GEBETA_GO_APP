@@ -11,6 +11,7 @@ type AuthContextValue = {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  updateSession: (user: AuthUser) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -89,6 +90,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(nextUser);
   }, []);
 
+  const updateSession = useCallback((nextUser: AuthUser) => {
+    setUser(nextUser);
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -96,8 +101,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       login,
       register,
       logout,
+      updateSession,
     }),
-    [user, loading, login, register, logout],
+    [user, loading, login, register, logout, updateSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

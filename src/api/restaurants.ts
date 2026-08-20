@@ -2,13 +2,17 @@ import { env } from '@/config/env';
 import {
   mockAddMenuItem,
   mockCreateRestaurant,
+  mockDeleteMenuItem,
   mockGetMyRestaurant,
   mockGetRestaurant,
   mockListRestaurants,
+  mockUpdateMenuItem,
+  mockUpdateRestaurant,
 } from '@/api/mock/listRestaurants';
 import { api } from './client';
 import { endpoints } from './endpoints';
 import { ApiError } from './errors';
+import { appendPickedImage, resolveMediaUrl } from './media';
 import type {
   AddMenuItemInput,
   CreateRestaurantInput,
@@ -16,7 +20,11 @@ import type {
   Restaurant,
   RestaurantDetailResponse,
   RestaurantListResponse,
+  RestaurantReview,
+  UpdateMenuItemInput,
+  UpdateRestaurantInput,
 } from '@/types/restaurant';
+import type { PickedImage } from '@/types/media';
 
 type RawMenuItem = MenuItem & { _id?: string };
 type RawRestaurant = Restaurant & { _id?: string; ownerId?: string; menu?: RawMenuItem[] };
@@ -27,18 +35,18 @@ function normalizeMenuItem(item: RawMenuItem, index: number): MenuItem {
     itemName: item.itemName,
     price: item.price,
     description: item.description ?? '',
-    imageUrl: item.imageUrl ?? '',
+    imageUrl: resolveMediaUrl(item.imageUrl),
     category: item.category ?? 'Traditional',
   };
 }
 
-export function normalizeRestaurant(raw: RawRestaurant): Restaurant {
+export function normalizeRestaurant(raw: RawRestaurant & { reviews?: RestaurantReview[] }): Restaurant {
   return {
     id: String(raw.id ?? raw._id),
     name: raw.name,
     cuisineType: raw.cuisineType,
     city: raw.city,
-    imageUrl: raw.imageUrl,
+    imageUrl: resolveMediaUrl(raw.imageUrl),
     rating: raw.rating,
     ratingCount: raw.ratingCount ?? 0,
     deliveryTime: raw.deliveryTime,
@@ -47,7 +55,19 @@ export function normalizeRestaurant(raw: RawRestaurant): Restaurant {
     isSuspended: raw.isSuspended,
     location: raw.location,
     menu: (raw.menu ?? []).map(normalizeMenuItem),
+    reviews: raw.reviews,
   };
+}
+
+function restaurantForm(fields: Record<string, string | number | undefined>, image?: PickedImage | null): FormData {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== '') {
+      form.append(key, String(value));
+    }
+  }
+  appendPickedImage(form, 'image', image);
+  return form;
 }
 
 export async function listRestaurants(): Promise<Restaurant[]> {
@@ -93,7 +113,49 @@ export async function createRestaurant(input: CreateRestaurantInput): Promise<Re
     return mockCreateRestaurant(input);
   }
 
+  if (input.image) {
+    const response = await api.upload<RestaurantDetailResponse>(
+      endpoints.restaurants.create,
+      restaurantForm(
+        {
+          name: input.name,
+          cuisineType: input.cuisineType,
+          address: input.address,
+        },
+        input.image,
+      ),
+    );
+    return normalizeRestaurant(response.data);
+  }
+
   const response = await api.post<RestaurantDetailResponse>(endpoints.restaurants.create, input);
+  return normalizeRestaurant(response.data);
+}
+
+export async function updateRestaurant(input: UpdateRestaurantInput): Promise<Restaurant> {
+  if (env.useMockApi) {
+    return mockUpdateRestaurant(input);
+  }
+
+  if (input.image) {
+    const response = await api.upload<RestaurantDetailResponse>(
+      endpoints.restaurants.profile,
+      restaurantForm(
+        {
+          name: input.name,
+          cuisineType: input.cuisineType,
+          address: input.address,
+          deliveryFee: input.deliveryFee,
+          deliveryTime: input.deliveryTime,
+        },
+        input.image,
+      ),
+      { method: 'PUT' },
+    );
+    return normalizeRestaurant(response.data);
+  }
+
+  const response = await api.put<RestaurantDetailResponse>(endpoints.restaurants.profile, input);
   return normalizeRestaurant(response.data);
 }
 
@@ -102,6 +164,58 @@ export async function addMenuItem(input: AddMenuItemInput): Promise<Restaurant> 
     return mockAddMenuItem(input);
   }
 
+  if (input.image) {
+    const response = await api.upload<RestaurantDetailResponse>(
+      endpoints.restaurants.addMenu,
+      restaurantForm(
+        {
+          itemName: input.itemName,
+          price: input.price,
+          description: input.description,
+          category: input.category,
+        },
+        input.image,
+      ),
+    );
+    return normalizeRestaurant(response.data);
+  }
+
   const response = await api.post<RestaurantDetailResponse>(endpoints.restaurants.addMenu, input);
+  return normalizeRestaurant(response.data);
+}
+
+export async function updateMenuItem(input: UpdateMenuItemInput): Promise<Restaurant> {
+  if (env.useMockApi) {
+    return mockUpdateMenuItem(input);
+  }
+
+  if (input.image) {
+    const response = await api.upload<RestaurantDetailResponse>(
+      endpoints.restaurants.updateMenu(input.itemId),
+      restaurantForm(
+        {
+          itemName: input.itemName,
+          price: input.price,
+          description: input.description,
+          category: input.category,
+        },
+        input.image,
+      ),
+      { method: 'PUT' },
+    );
+    return normalizeRestaurant(response.data);
+  }
+
+  const { itemId, ...body } = input;
+  const response = await api.put<RestaurantDetailResponse>(endpoints.restaurants.updateMenu(itemId), body);
+  return normalizeRestaurant(response.data);
+}
+
+export async function deleteMenuItem(itemId: string): Promise<Restaurant> {
+  if (env.useMockApi) {
+    return mockDeleteMenuItem(itemId);
+  }
+
+  const response = await api.delete<RestaurantDetailResponse>(endpoints.restaurants.deleteMenu(itemId));
   return normalizeRestaurant(response.data);
 }

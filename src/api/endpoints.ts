@@ -4,12 +4,17 @@ export const endpoints = {
     login: '/api/auth/login',
     register: '/api/auth/register',
     me: '/api/auth/me',
+    profile: '/api/auth/profile',
+    favorites: '/api/auth/favorites',
   },
   restaurants: {
     list: '/api/restaurants',
     mine: '/api/restaurants/mine',
     create: '/api/restaurants',
+    profile: '/api/restaurants/profile',
     addMenu: '/api/restaurants/menu',
+    updateMenu: (itemId: string) => `/api/restaurants/menu/${itemId}`,
+    deleteMenu: (itemId: string) => `/api/restaurants/menu/${itemId}`,
     detail: (id: string) => `/api/restaurants/${id}`,
   },
   orders: {
@@ -24,6 +29,8 @@ export const endpoints = {
     status: (id: string) => `/api/orders/${id}/status`,
     cancel: (id: string) => `/api/orders/${id}/cancel`,
     verifyPayment: (id: string) => `/api/orders/${id}/verify-payment`,
+    paymentProof: (id: string) => `/api/orders/${id}/payment-proof`,
+    rate: (id: string) => `/api/orders/${id}/rate`,
   },
   admin: {
     stats: '/api/admin/stats',
@@ -31,6 +38,9 @@ export const endpoints = {
     updateUser: (id: string) => `/api/admin/users/${id}`,
     restaurants: '/api/admin/restaurants',
     updateRestaurant: (id: string) => `/api/admin/restaurants/${id}`,
+    deleteRestaurant: (id: string) => `/api/admin/restaurants/${id}`,
+    deleteUser: (id: string) => `/api/admin/users/${id}`,
     orders: '/api/admin/orders',
+    assignDriver: (id: string) => `/api/admin/orders/${id}/assign-driver`,
   },
 } as const;

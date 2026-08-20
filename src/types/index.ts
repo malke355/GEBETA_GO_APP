@@ -26,7 +26,12 @@ export type {
   Restaurant,
   RestaurantDetailResponse,
   RestaurantListResponse,
+  RestaurantReview,
+  UpdateMenuItemInput,
+  UpdateRestaurantInput,
 } from './restaurant';
+
+export type { PickedImage } from './media';
 
 export type { CartLine, CartRestaurant, CartState } from './cart';
 

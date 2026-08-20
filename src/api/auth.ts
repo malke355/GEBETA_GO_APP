@@ -1,5 +1,5 @@
 import { env } from '@/config/env';
-import { mockFetchCurrentUser, mockLogin, mockRegister } from '@/api/mock/auth';
+import { mockFetchCurrentUser, mockLogin, mockRegister, mockToggleFavorite, mockUpdateProfile } from '@/api/mock/auth';
 import { api } from './client';
 import { endpoints } from './endpoints';
 import type { AuthResponse, AuthUser, LoginInput, MeResponse, RegisterInput, UserRole } from '@/types';
@@ -19,6 +19,7 @@ export function normalizeUser(raw: AuthUser & { _id?: string }): AuthUser {
     address: raw.address,
     phone: raw.phone,
     isSuspended: raw.isSuspended,
+    favoriteIds: raw.favoriteIds ?? [],
   };
 }
 
@@ -44,4 +45,24 @@ export function fetchCurrentUser() {
   }
 
   return api.get<MeResponse>(endpoints.auth.me);
+}
+
+export async function updateProfileRequest(input: { name?: string; address?: string; phone?: string }): Promise<AuthUser> {
+  if (env.useMockApi) {
+    const data = await mockUpdateProfile(input);
+    return normalizeUser(data.user);
+  }
+
+  const data = await api.put<MeResponse>(endpoints.auth.profile, input);
+  return normalizeUser(data.user);
+}
+
+export async function toggleFavoriteRequest(restaurantId: string): Promise<AuthUser> {
+  if (env.useMockApi) {
+    const data = await mockToggleFavorite(restaurantId);
+    return normalizeUser(data.user);
+  }
+
+  const data = await api.put<MeResponse>(endpoints.auth.favorites, { restaurantId });
+  return normalizeUser(data.user);
 }

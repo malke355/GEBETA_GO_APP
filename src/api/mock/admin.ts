@@ -146,3 +146,44 @@ export async function mockAdminOrders(): Promise<Order[]> {
   await requireAdmin();
   return listAllMockOrders();
 }
+
+export async function mockDeleteUser(id: string): Promise<void> {
+  await delay();
+  const admin = await requireAdmin();
+  if (admin.id === id) {
+    throw new ApiError({ message: 'You cannot delete your own account', status: 400, payload: null });
+  }
+}
+
+export async function mockDeleteRestaurant(id: string): Promise<void> {
+  await delay();
+  await requireAdmin();
+  const restaurants = await listPersistedRestaurants();
+  const restaurant = restaurants.find((item) => item.id === id);
+  if (!restaurant) {
+    throw new ApiError({ message: 'Restaurant not found', status: 404, payload: null });
+  }
+  await saveRestaurant({ ...restaurant, isSuspended: true });
+}
+
+export async function mockAssignDriver(orderId: string, driverId: string): Promise<Order> {
+  await delay();
+  await requireAdmin();
+  const users = await listMockUsers();
+  const driver = users.find((user) => user.id === driverId && user.role === 'driver');
+  if (!driver) {
+    throw new ApiError({ message: 'Driver not found', status: 404, payload: null });
+  }
+  const orders = await listAllMockOrders();
+  const order = orders.find((item) => item.id === orderId);
+  if (!order) {
+    throw new ApiError({ message: 'Order not found', status: 404, payload: null });
+  }
+  return {
+    ...order,
+    driverId: driver.id,
+    driverName: driver.name,
+    driverPhone: driver.phone,
+    status: order.status === 'prepared' ? 'dispatched' : order.status,
+  };
+}

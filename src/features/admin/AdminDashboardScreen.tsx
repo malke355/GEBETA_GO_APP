@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  assignAdminDriver,
+  deleteAdminRestaurant,
+  deleteAdminUser,
   fetchAdminOrders,
   fetchAdminRestaurants,
   fetchAdminStats,
@@ -122,6 +125,66 @@ export function AdminDashboardScreen({ adminName, adminId, onLogout }: AdminDash
     }
   };
 
+  const drivers = users.filter((item) => item.role === 'driver');
+
+  const removeUser = (user: AdminUser) => {
+    Alert.alert('Delete this account?', user.email, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setBusyId(user.id);
+            try {
+              await deleteAdminUser(user.id);
+              setUsers((current) => current.filter((item) => item.id !== user.id));
+            } catch (caught) {
+              Alert.alert('Could not delete user', getApiErrorMessage(caught));
+            } finally {
+              setBusyId(null);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
+  const removeRestaurant = (restaurant: AdminRestaurant) => {
+    Alert.alert('Delete this restaurant?', restaurant.name, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setBusyId(restaurant.id);
+            try {
+              await deleteAdminRestaurant(restaurant.id);
+              setRestaurants((current) => current.filter((item) => item.id !== restaurant.id));
+            } catch (caught) {
+              Alert.alert('Could not delete restaurant', getApiErrorMessage(caught));
+            } finally {
+              setBusyId(null);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
+  const assignDriver = async (order: Order, driverId: string) => {
+    setBusyId(order.id);
+    try {
+      const updated = await assignAdminDriver(order.id, driverId);
+      setOrders((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    } catch (caught) {
+      Alert.alert('Could not assign driver', getApiErrorMessage(caught));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -213,6 +276,13 @@ export function AdminDashboardScreen({ adminName, adminId, onLogout }: AdminDash
                       onPress={() => void toggleUser(user)}
                     />
                   </View>
+                  {user.id !== adminId ? (
+                    <Pressable onPress={() => removeUser(user)}>
+                      <AppText variant="caption" style={styles.delete}>
+                        Delete
+                      </AppText>
+                    </Pressable>
+                  ) : null}
                 </View>
               ))
             : null}
@@ -235,6 +305,11 @@ export function AdminDashboardScreen({ adminName, adminId, onLogout }: AdminDash
                       onPress={() => void toggleRestaurant(restaurant)}
                     />
                   </View>
+                  <Pressable onPress={() => removeRestaurant(restaurant)}>
+                    <AppText variant="caption" style={styles.delete}>
+                      Delete
+                    </AppText>
+                  </Pressable>
                 </View>
               ))
             : null}
@@ -249,6 +324,17 @@ export function AdminDashboardScreen({ adminName, adminId, onLogout }: AdminDash
                   <AppText muted>
                     {order.customerName ?? 'Customer'} · ETB {order.totalAmount}
                   </AppText>
+                  {order.status !== 'delivered' && order.status !== 'cancelled' && drivers.length > 0 ? (
+                    <View style={styles.assign}>
+                      {drivers.map((driver) => (
+                        <Pressable key={driver.id} onPress={() => void assignDriver(order, driver.id)}>
+                          <AppText variant="caption" style={styles.assignLabel}>
+                            Assign {driver.name.split(' ')[0]}
+                          </AppText>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
               ))
             : null}
@@ -368,5 +454,20 @@ const styles = StyleSheet.create({
   },
   strong: {
     fontWeight: '700',
+  },
+  delete: {
+    color: colors.danger,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  assign: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: 4,
+  },
+  assignLabel: {
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

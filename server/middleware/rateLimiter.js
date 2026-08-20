@@ -19,3 +19,11 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   message: jsonMessage('Too many login attempts. Please try again later.'),
 });
+
+export const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 40 * scale,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: jsonMessage('Too many uploads. Please try again later.'),
+});

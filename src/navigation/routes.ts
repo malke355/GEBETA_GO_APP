@@ -7,6 +7,8 @@ export const routes = {
   checkout: '/(app)/checkout',
   orders: '/(app)/orders',
   order: (id: string) => `/(app)/order/${id}`,
+  profile: '/(app)/profile',
+  about: '/(app)/about',
 } as const;
 
 export type AppRoute = (typeof routes)[keyof typeof routes];

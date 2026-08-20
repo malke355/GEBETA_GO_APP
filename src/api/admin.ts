@@ -8,6 +8,9 @@ import {
   mockAdminRestaurants,
   mockAdminStats,
   mockAdminUsers,
+  mockAssignDriver,
+  mockDeleteRestaurant,
+  mockDeleteUser,
   mockSetRestaurantSuspended,
   mockSetUserSuspended,
 } from '@/api/mock/admin';
@@ -98,4 +101,31 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 
   const response = await api.get<AdminOrdersResponse>(endpoints.admin.orders);
   return (response.data ?? []).map(normalizeOrder);
+}
+
+export async function deleteAdminUser(id: string): Promise<void> {
+  if (env.useMockApi) {
+    await mockDeleteUser(id);
+    return;
+  }
+  await api.delete(endpoints.admin.deleteUser(id));
+}
+
+export async function deleteAdminRestaurant(id: string): Promise<void> {
+  if (env.useMockApi) {
+    await mockDeleteRestaurant(id);
+    return;
+  }
+  await api.delete(endpoints.admin.deleteRestaurant(id));
+}
+
+export async function assignAdminDriver(orderId: string, driverId: string): Promise<Order> {
+  if (env.useMockApi) {
+    return mockAssignDriver(orderId, driverId);
+  }
+  const response = await api.put<{ success: boolean; data: Order & { _id?: string } }>(
+    endpoints.admin.assignDriver(orderId),
+    { driverId },
+  );
+  return normalizeOrder(response.data);
 }

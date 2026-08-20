@@ -41,3 +41,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# uploaded images
+server/uploads/*
+!server/uploads/.gitkeep

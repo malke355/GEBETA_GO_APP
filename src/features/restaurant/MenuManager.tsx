@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
-import { addMenuItem } from '@/api/restaurants';
+import { addMenuItem, deleteMenuItem, updateMenuItem } from '@/api/restaurants';
 import { getApiErrorMessage } from '@/api/errors';
 import { AppText, Button, TextField } from '@/components';
+import { pickImageFromLibrary } from '@/media/pickImage';
 import { colors, spacing } from '@/theme';
-import type { Restaurant } from '@/types';
+import type { MenuItem, PickedImage, Restaurant } from '@/types';
 
 const CATEGORIES = ['Ethiopian', 'Burger', 'Pizza', 'Chicken', 'Healthy', 'Pasta', 'Sushi', 'Drinks', 'Desserts'];
 
@@ -18,11 +19,30 @@ export function MenuManager({ restaurant, onRestaurantChange }: MenuManagerProps
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Ethiopian');
+  const [image, setImage] = useState<PickedImage | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState<string | undefined>();
   const [priceError, setPriceError] = useState<string | undefined>();
 
-  const handleAdd = async () => {
+  const resetForm = () => {
+    setItemName('');
+    setPrice('');
+    setDescription('');
+    setImage(null);
+    setEditingId(null);
+  };
+
+  const fillItem = (item: MenuItem) => {
+    setEditingId(item.id);
+    setItemName(item.itemName);
+    setPrice(String(item.price));
+    setDescription(item.description);
+    setCategory(item.category);
+    setImage(null);
+  };
+
+  const handleSave = async () => {
     const parsedPrice = Number(price);
     const nextNameError = itemName.trim() ? undefined : 'Food name is required';
     const nextPriceError =
@@ -35,20 +55,33 @@ export function MenuManager({ restaurant, onRestaurantChange }: MenuManagerProps
 
     setSaving(true);
     try {
-      const updated = await addMenuItem({
+      const payload = {
         itemName: itemName.trim(),
         price: parsedPrice,
         description: description.trim(),
         category,
-      });
+        image,
+      };
+      const updated = editingId
+        ? await updateMenuItem({ ...payload, itemId: editingId })
+        : await addMenuItem(payload);
       onRestaurantChange(updated);
-      setItemName('');
-      setPrice('');
-      setDescription('');
+      resetForm();
     } catch (error) {
-      Alert.alert('Could not add item', getApiErrorMessage(error));
+      Alert.alert(editingId ? 'Could not update item' : 'Could not add item', getApiErrorMessage(error));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePick = async () => {
+    try {
+      const picked = await pickImageFromLibrary();
+      if (picked) {
+        setImage(picked);
+      }
+    } catch (error) {
+      Alert.alert('Could not open photos', error instanceof Error ? error.message : 'Permission denied');
     }
   };
 
@@ -100,7 +133,9 @@ export function MenuManager({ restaurant, onRestaurantChange }: MenuManagerProps
         textAlignVertical="top"
         style={styles.description}
       />
-      <Button label="Add food item" loading={saving} onPress={() => void handleAdd()} />
+      <Button label={image ? 'Photo selected' : 'Add food photo'} variant="secondary" onPress={() => void handlePick()} />
+      <Button label={editingId ? 'Save changes' : 'Add food item'} loading={saving} onPress={() => void handleSave()} />
+      {editingId ? <Button label="Cancel edit" variant="secondary" onPress={resetForm} /> : null}
 
       {restaurant.menu.length === 0 ? (
         <AppText muted>No menu items yet.</AppText>
@@ -113,6 +148,33 @@ export function MenuManager({ restaurant, onRestaurantChange }: MenuManagerProps
               <AppText variant="caption" muted>
                 {item.category}
               </AppText>
+              <View style={styles.itemActions}>
+                <Pressable onPress={() => fillItem(item)}>
+                  <AppText variant="caption" style={styles.edit}>
+                    Edit
+                  </AppText>
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    Alert.alert('Remove this dish?', item.itemName, [
+                      { text: 'Keep', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => {
+                          void deleteMenuItem(item.id)
+                            .then(onRestaurantChange)
+                            .catch((error) => Alert.alert('Could not delete', getApiErrorMessage(error)));
+                        },
+                      },
+                    ])
+                  }
+                >
+                  <AppText variant="caption" style={styles.cancel}>
+                    Delete
+                  </AppText>
+                </Pressable>
+              </View>
             </View>
             <AppText style={styles.itemPrice}>ETB {item.price}</AppText>
           </View>
@@ -179,5 +241,18 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     fontWeight: '700',
+  },
+  itemActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: 4,
+  },
+  edit: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  cancel: {
+    color: colors.danger,
+    fontWeight: '600',
   },
 });

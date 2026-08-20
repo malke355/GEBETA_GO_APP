@@ -32,6 +32,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     [
+      'expo-image-picker',
+      {
+        photosPermission: 'GebetaGo uses your photos for payment receipts and menu pictures.',
+        cameraPermission: 'GebetaGo uses the camera to take payment receipts and dish photos.',
+        microphonePermission: false,
+      },
+    ],
+    [
+      'expo-location',
+      {
+        locationWhenInUsePermission: 'GebetaGo uses your location to show delivery progress.',
+      },
+    ],
+    [
       'expo-splash-screen',
       {
         image: './assets/splash-icon.png',

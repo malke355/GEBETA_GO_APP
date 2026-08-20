@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,20 +12,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { listRestaurantOrders } from '@/api/orders';
-import { createRestaurant, getMyRestaurant } from '@/api/restaurants';
+import { createRestaurant, getMyRestaurant, updateRestaurant } from '@/api/restaurants';
 import { subscribeRealtime } from '@/api/socket';
 import { getApiErrorMessage } from '@/api/errors';
 import { AppText, Button, TextField } from '@/components';
 import { env } from '@/config';
 import { isActiveOrderStatus } from '@/features/orders';
+import { pickImageFromLibrary } from '@/media/pickImage';
 import { colors, spacing } from '@/theme';
-import type { Order, Restaurant } from '@/types';
+import type { Order, PickedImage, Restaurant } from '@/types';
 import { KitchenOrderCard } from './KitchenOrderCard';
 import { MenuManager } from './MenuManager';
 
 const POLL_MS = 4000;
 
-type DashboardTab = 'kitchen' | 'menu';
+type DashboardTab = 'kitchen' | 'menu' | 'store';
 
 type RestaurantDashboardScreenProps = {
   ownerName: string;
@@ -43,6 +45,10 @@ export function RestaurantDashboardScreen({ ownerName, onLogout }: RestaurantDas
   const [name, setName] = useState('');
   const [cuisineType, setCuisineType] = useState('Ethiopian Traditional');
   const [address, setAddress] = useState('');
+  const [deliveryFee, setDeliveryFee] = useState('50');
+  const [deliveryTime, setDeliveryTime] = useState('30');
+  const [storeImage, setStoreImage] = useState<PickedImage | null>(null);
+  const [savingStore, setSavingStore] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
@@ -54,6 +60,11 @@ export function RestaurantDashboardScreen({ ownerName, onLogout }: RestaurantDas
       setRestaurant(profile);
       if (profile) {
         setOrders(await listRestaurantOrders());
+        setName(profile.name);
+        setCuisineType(profile.cuisineType);
+        setAddress(profile.location.address);
+        setDeliveryFee(String(profile.deliveryFee));
+        setDeliveryTime(String(profile.deliveryTime));
       } else {
         setOrders([]);
       }
@@ -175,6 +186,9 @@ export function RestaurantDashboardScreen({ ownerName, onLogout }: RestaurantDas
             <Pressable onPress={() => setTab('menu')} style={[styles.tab, tab === 'menu' && styles.tabActive]}>
               <AppText style={tab === 'menu' ? styles.tabLabelActive : styles.tabLabel}>Menu</AppText>
             </Pressable>
+            <Pressable onPress={() => setTab('store')} style={[styles.tab, tab === 'store' && styles.tabActive]}>
+              <AppText style={tab === 'store' ? styles.tabLabelActive : styles.tabLabel}>Store</AppText>
+            </Pressable>
           </View>
 
           {tab === 'kitchen' ? (
@@ -200,10 +214,56 @@ export function RestaurantDashboardScreen({ ownerName, onLogout }: RestaurantDas
                 ))
               )}
             </ScrollView>
-          ) : (
+          ) : tab === 'menu' ? (
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
               <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
                 <MenuManager restaurant={restaurant} onRestaurantChange={setRestaurant} />
+              </ScrollView>
+            </KeyboardAvoidingView>
+          ) : (
+            <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+              <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+                <TextField label="Restaurant name" value={name} onChangeText={setName} />
+                <TextField label="Cuisine" value={cuisineType} onChangeText={setCuisineType} />
+                <TextField label="Address" value={address} onChangeText={setAddress} />
+                <TextField label="Delivery fee (ETB)" value={deliveryFee} onChangeText={setDeliveryFee} keyboardType="numeric" />
+                <TextField label="Delivery time (min)" value={deliveryTime} onChangeText={setDeliveryTime} keyboardType="numeric" />
+                <Button
+                  label={storeImage ? 'Photo selected' : 'Change store photo'}
+                  variant="secondary"
+                  onPress={() => {
+                    void pickImageFromLibrary()
+                      .then((picked) => picked && setStoreImage(picked))
+                      .catch((error) =>
+                        Alert.alert('Could not open photos', error instanceof Error ? error.message : 'Permission denied'),
+                      );
+                  }}
+                />
+                <Button
+                  label="Save store profile"
+                  loading={savingStore}
+                  onPress={() => {
+                    void (async () => {
+                      setSavingStore(true);
+                      try {
+                        const updated = await updateRestaurant({
+                          name: name.trim(),
+                          cuisineType,
+                          address,
+                          deliveryFee: Number(deliveryFee) || restaurant.deliveryFee,
+                          deliveryTime: Number(deliveryTime) || restaurant.deliveryTime,
+                          image: storeImage,
+                        });
+                        setRestaurant(updated);
+                        setStoreImage(null);
+                      } catch (caught) {
+                        Alert.alert('Could not save', getApiErrorMessage(caught));
+                      } finally {
+                        setSavingStore(false);
+                      }
+                    })();
+                  }}
+                />
               </ScrollView>
             </KeyboardAvoidingView>
           )}

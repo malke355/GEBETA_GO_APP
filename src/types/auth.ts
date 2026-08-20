@@ -8,6 +8,7 @@ export type AuthUser = {
   address?: string;
   phone?: string;
   isSuspended?: boolean;
+  favoriteIds?: string[];
 };
 
 export type AuthResponse = {

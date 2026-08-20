@@ -3,7 +3,7 @@ export { endpoints } from './endpoints';
 export { ApiError, getApiErrorMessage } from './errors';
 export { getAuthToken, setAuthToken } from './token';
 export { connectRealtime, disconnectRealtime, emitRealtime, subscribeRealtime } from './socket';
-export { loginRequest, registerRequest, fetchCurrentUser } from './auth';
+export { loginRequest, registerRequest, fetchCurrentUser, updateProfileRequest, toggleFavoriteRequest } from './auth';
 export {
   fetchAdminOrders,
   fetchAdminRestaurants,
@@ -11,8 +11,21 @@ export {
   fetchAdminUsers,
   setRestaurantSuspended,
   setUserSuspended,
+  deleteAdminUser,
+  deleteAdminRestaurant,
+  assignAdminDriver,
 } from './admin';
-export { addMenuItem, createRestaurant, getMyRestaurant, getRestaurant, listRestaurants, normalizeRestaurant } from './restaurants';
+export {
+  addMenuItem,
+  createRestaurant,
+  deleteMenuItem,
+  getMyRestaurant,
+  getRestaurant,
+  listRestaurants,
+  normalizeRestaurant,
+  updateMenuItem,
+  updateRestaurant,
+} from './restaurants';
 export {
   acceptJob,
   cancelOrder,
@@ -23,6 +36,8 @@ export {
   listDriverHistory,
   listMyOrders,
   listRestaurantOrders,
+  rateOrder,
   updateOrderStatus,
+  uploadPaymentProof,
   verifyOrderPayment,
 } from './orders';

@@ -8,6 +8,8 @@ export type MockUser = AuthUser & {
 
 const EXTRA_USERS_KEY = 'gebetago.mockUsers';
 const SUSPENDED_USERS_KEY = 'gebetago.userSuspended';
+const PROFILE_KEY = 'gebetago.userProfiles';
+const FAVORITES_KEY = 'gebetago.userFavorites';
 const DEMO_PASSWORD = 'password123';
 
 export const DEMO_USERS: MockUser[] = [
@@ -84,7 +86,10 @@ let extraUsers: MockUser[] | null = null;
 
 function toPublicUser(user: MockUser): AuthUser {
   const { password: _password, ...publicUser } = user;
-  return publicUser;
+  return {
+    ...publicUser,
+    favoriteIds: user.favoriteIds ?? [],
+  };
 }
 
 async function loadExtraUsers(): Promise<MockUser[]> {
@@ -99,11 +104,48 @@ async function loadExtraUsers(): Promise<MockUser[]> {
 
 export async function listMockUsers(): Promise<MockUser[]> {
   const extras = await loadExtraUsers();
-  const raw = await getStoredItem(SUSPENDED_USERS_KEY);
-  const suspended = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-  return [...DEMO_USERS, ...extras].map((user) =>
-    suspended[user.id] === undefined ? user : { ...user, isSuspended: suspended[user.id] },
-  );
+  const rawSuspended = await getStoredItem(SUSPENDED_USERS_KEY);
+  const suspended = rawSuspended ? (JSON.parse(rawSuspended) as Record<string, boolean>) : {};
+  const rawProfiles = await getStoredItem(PROFILE_KEY);
+  const profiles = rawProfiles ? (JSON.parse(rawProfiles) as Record<string, Partial<AuthUser>>) : {};
+  const rawFavorites = await getStoredItem(FAVORITES_KEY);
+  const favorites = rawFavorites ? (JSON.parse(rawFavorites) as Record<string, string[]>) : {};
+  return [...DEMO_USERS, ...extras].map((user) => ({
+    ...user,
+    ...(profiles[user.id] ?? {}),
+    favoriteIds: favorites[user.id] ?? user.favoriteIds ?? [],
+    isSuspended: suspended[user.id] === undefined ? user.isSuspended : suspended[user.id],
+  }));
+}
+
+export async function updateMockUserProfile(
+  id: string,
+  input: { name?: string; address?: string; phone?: string },
+): Promise<AuthUser> {
+  const user = await findMockUserById(id);
+  if (!user) {
+    throw new Error('User not found');
+  }
+  const raw = await getStoredItem(PROFILE_KEY);
+  const profiles = raw ? (JSON.parse(raw) as Record<string, Partial<AuthUser>>) : {};
+  profiles[id] = { ...profiles[id], ...input };
+  await setStoredItem(PROFILE_KEY, JSON.stringify(profiles));
+  return toPublicUser({ ...user, ...input });
+}
+
+export async function toggleMockFavorite(userId: string, restaurantId: string): Promise<AuthUser> {
+  const user = await findMockUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+  const raw = await getStoredItem(FAVORITES_KEY);
+  const favorites = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+  const current = favorites[userId] ?? user.favoriteIds ?? [];
+  favorites[userId] = current.includes(restaurantId)
+    ? current.filter((id) => id !== restaurantId)
+    : [...current, restaurantId];
+  await setStoredItem(FAVORITES_KEY, JSON.stringify(favorites));
+  return toPublicUser({ ...user, favoriteIds: favorites[userId] });
 }
 
 export async function setMockUserSuspended(id: string, isSuspended: boolean): Promise<AuthUser> {

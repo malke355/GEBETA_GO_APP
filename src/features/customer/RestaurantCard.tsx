@@ -7,12 +7,21 @@ import type { Restaurant } from '@/types';
 type RestaurantCardProps = {
   restaurant: Restaurant;
   onPress: () => void;
+  favorited?: boolean;
+  onToggleFavorite?: () => void;
 };
 
-export function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
+export function RestaurantCard({ restaurant, onPress, favorited, onToggleFavorite }: RestaurantCardProps) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      <Image source={{ uri: restaurant.imageUrl }} style={styles.image} />
+      <View>
+        <Image source={{ uri: restaurant.imageUrl }} style={styles.image} />
+        {onToggleFavorite ? (
+          <Pressable onPress={onToggleFavorite} style={styles.heart} hitSlop={8}>
+            <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={20} color={colors.primary} />
+          </Pressable>
+        ) : null}
+      </View>
       <View style={styles.body}>
         <AppText variant="body" style={styles.name}>
           {restaurant.name}
@@ -63,6 +72,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 148,
     backgroundColor: colors.surface,
+  },
+  heart: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   body: {
     padding: spacing.md,

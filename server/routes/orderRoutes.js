@@ -3,7 +3,9 @@ import { body, param } from 'express-validator';
 import Order from '../models/Order.js';
 import Restaurant from '../models/Restaurant.js';
 import { protect, authorize } from '../middleware/auth.js';
+import { uploadSingle, resolveUploadedImageUrl } from '../middleware/upload.js';
 import { validate } from '../middleware/validate.js';
+import { uploadLimiter } from '../middleware/rateLimiter.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
 import {
   emitJobAvailable,
@@ -68,8 +70,29 @@ const serializeOrder = (order) => {
   if (data.restaurantId && typeof data.restaurantId === 'object') {
     data.restaurantName = data.restaurantName || data.restaurantId.name;
     data.restaurantAddress = data.restaurantAddress || data.restaurantId.location?.address;
+    data.restaurantLat = data.restaurantId.location?.lat;
+    data.restaurantLng = data.restaurantId.location?.lng;
   }
+  data.proofImageUrl = data.paymentDetails?.proofImageUrl || data.proofImageUrl || '';
+  data.driverLat = data.driverLocation?.lat;
+  data.driverLng = data.driverLocation?.lng;
   return data;
+};
+
+const refreshRestaurantRating = async (restaurantId) => {
+  const [result] = await Order.aggregate([
+    { $match: { restaurantId, rating: { $ne: null } } },
+    { $group: { _id: '$restaurantId', average: { $avg: '$rating' }, count: { $sum: 1 } } },
+  ]);
+
+  if (!result) {
+    return;
+  }
+
+  await Restaurant.findByIdAndUpdate(restaurantId, {
+    rating: Math.round(result.average * 10) / 10,
+    ratingCount: result.count,
+  });
 };
 
 // @route POST /api/orders
@@ -431,6 +454,92 @@ router.put(
     const payload = serializeOrder(populated);
     emitOrderUpdate(req, payload);
     res.status(200).json({ success: true, data: payload });
+  }),
+);
+
+// @route POST /api/orders/:id/payment-proof
+// @desc Upload payment screenshot for Telebirr or bank transfer
+// @access Private (Customer only)
+router.post(
+  '/:id/payment-proof',
+  protect,
+  authorize('customer'),
+  uploadLimiter,
+  uploadSingle('proofImage'),
+  [
+    param('id').isMongoId(),
+    body('transactionId').optional({ values: 'falsy' }).trim().isLength({ max: 100 }),
+    body('bankName').optional({ values: 'falsy' }).trim().isLength({ max: 100 }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      throw new ApiError(404, 'Order not found');
+    }
+    if (order.customerId.toString() !== req.user.id) {
+      throw new ApiError(403, 'Not authorized');
+    }
+    if (!['telebirr', 'bank_transfer'].includes(order.paymentMethod)) {
+      throw new ApiError(400, 'This order does not need a payment screenshot');
+    }
+
+    const proofUrl = resolveUploadedImageUrl(req);
+    if (!proofUrl) {
+      throw new ApiError(400, 'Please upload a payment screenshot');
+    }
+
+    order.paymentDetails = {
+      ...(order.paymentDetails || {}),
+      proofImageUrl: proofUrl,
+      bankName: req.body.bankName || order.paymentDetails?.bankName || '',
+      transactionId: req.body.transactionId || order.paymentDetails?.transactionId || '',
+    };
+    order.paymentStatus = 'proof_submitted';
+    await order.save();
+
+    const populated = await order.populate(ORDER_POPULATE);
+    const payload = serializeOrder(populated);
+    emitPaymentUpdate(req, payload);
+    res.status(200).json({ success: true, data: payload });
+  }),
+);
+
+// @route POST /api/orders/:id/rate
+// @desc Customer rates a delivered order
+// @access Private (Customer only)
+router.post(
+  '/:id/rate',
+  protect,
+  authorize('customer'),
+  [
+    param('id').isMongoId(),
+    body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+    body('review').optional({ values: 'falsy' }).trim().isLength({ max: 500 }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      throw new ApiError(404, 'Order not found');
+    }
+    if (order.customerId.toString() !== req.user.id) {
+      throw new ApiError(403, 'Not authorized to rate this order');
+    }
+    if (order.status !== 'delivered') {
+      throw new ApiError(400, 'You can only rate a delivered order');
+    }
+    if (order.rating) {
+      throw new ApiError(400, 'This order has already been rated');
+    }
+
+    order.rating = Number(req.body.rating);
+    order.review = req.body.review || '';
+    await order.save();
+    await refreshRestaurantRating(order.restaurantId);
+
+    const populated = await order.populate(ORDER_POPULATE);
+    res.status(200).json({ success: true, data: serializeOrder(populated) });
   }),
 );
 

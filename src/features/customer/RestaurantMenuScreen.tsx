@@ -65,6 +65,16 @@ function RestaurantHeader({ restaurant, onBack }: { restaurant: Restaurant; onBa
             </AppText>
           </View>
         </View>
+        {restaurant.reviews && restaurant.reviews.length > 0 ? (
+          <View style={styles.reviews}>
+            <AppText style={styles.reviewTitle}>Recent reviews</AppText>
+            {restaurant.reviews.slice(0, 3).map((item) => (
+              <AppText key={item.id} variant="caption" muted>
+                {item.customerName}: {item.rating}/5 {item.review}
+              </AppText>
+            ))}
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -202,6 +212,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  reviews: {
+    gap: 4,
+    marginTop: spacing.sm,
+  },
+  reviewTitle: {
+    fontWeight: '700',
   },
   chips: {
     gap: spacing.sm,

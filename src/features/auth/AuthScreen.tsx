@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getApiErrorMessage } from '@/api/errors';
 import { AppText, Button, Screen, TextField } from '@/components';
 import { APP_NAME, PHONE_PATTERN, PHONE_PREFIX, env } from '@/config';
+import { LANGUAGE_LABELS, LANGUAGES, useLanguage } from '@/i18n';
 import { colors, spacing } from '@/theme';
 import type { UserRole } from '@/types';
 import { useAuth } from './AuthContext';
@@ -25,6 +26,7 @@ type FieldErrors = {
 
 export function AuthScreen() {
   const { login, register } = useAuth();
+  const { t, language, setLanguage } = useLanguage();
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState<UserRole>('customer');
   const [name, setName] = useState('');
@@ -128,7 +130,20 @@ export function AuthScreen() {
         >
           <View style={styles.header}>
             <AppText variant="title">{APP_NAME}</AppText>
-            <AppText muted>{isLogin ? 'Welcome back. Sign in to continue.' : 'Create an account to get started.'}</AppText>
+            <View style={styles.langRow}>
+              {LANGUAGES.map((option) => (
+                <Pressable
+                  key={option}
+                  onPress={() => setLanguage(option)}
+                  style={[styles.langChip, language === option && styles.langChipActive]}
+                >
+                  <AppText style={language === option ? styles.langLabelActive : styles.langLabel}>
+                    {LANGUAGE_LABELS[option]}
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
+            <AppText muted>{isLogin ? t.signInDesc : t.signUpDesc}</AppText>
           </View>
 
           {formError ? (
@@ -137,7 +152,7 @@ export function AuthScreen() {
             </View>
           ) : null}
 
-          <AppText variant="caption">{isLogin ? 'Sign in as' : 'Register as'}</AppText>
+          <AppText variant="caption">{isLogin ? t.signIn : t.signUp}</AppText>
           <View style={styles.roleGrid}>
             {roles.map((option) => {
               const selected = role === option.id;
@@ -153,7 +168,7 @@ export function AuthScreen() {
                     color={selected ? colors.primary : colors.textMuted}
                   />
                   <AppText style={selected ? styles.roleLabelSelected : styles.roleLabel}>
-                    {option.label}
+                    {option.id === 'restaurant' ? t.merchant : t[option.id]}
                   </AppText>
                 </Pressable>
               );
@@ -163,7 +178,7 @@ export function AuthScreen() {
           {!isLogin ? (
             <>
               <TextField
-                label="Full name"
+                label={t.fullName}
                 value={name}
                 onChangeText={(value) => {
                   setName(value);
@@ -173,7 +188,7 @@ export function AuthScreen() {
                 error={fieldErrors.name}
               />
               <TextField
-                label="Phone"
+                label={t.phoneNumber}
                 value={phone}
                 onChangeText={handlePhoneChange}
                 keyboardType="phone-pad"
@@ -183,7 +198,7 @@ export function AuthScreen() {
           ) : null}
 
           <TextField
-            label="Email"
+            label={t.emailAddress}
             value={email}
             onChangeText={(value) => {
               setEmail(value);
@@ -196,7 +211,7 @@ export function AuthScreen() {
           />
 
           <TextField
-            label="Password"
+            label={t.password}
             value={password}
             onChangeText={(value) => {
               setPassword(value);
@@ -217,7 +232,7 @@ export function AuthScreen() {
           />
 
           <Button
-            label={isLogin ? 'Sign in' : 'Create account'}
+            label={isLogin ? t.signIn : t.signUp}
             loading={submitting}
             onPress={() => {
               void handleSubmit();
@@ -232,7 +247,7 @@ export function AuthScreen() {
             }}
           >
             <AppText muted style={styles.switchText}>
-              {isLogin ? 'No account? Register here' : 'Already have an account? Sign in'}
+              {isLogin ? `${t.noAccount} ${t.registerHere}` : `${t.hasAccount} ${t.loginHere}`}
             </AppText>
           </Pressable>
 
@@ -264,6 +279,29 @@ const styles = StyleSheet.create({
   header: {
     gap: spacing.xs,
     marginBottom: spacing.sm,
+  },
+  langRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  langChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    backgroundColor: colors.surface,
+  },
+  langChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#FFF7ED',
+  },
+  langLabel: {
+    color: colors.textMuted,
+  },
+  langLabelActive: {
+    color: colors.primary,
+    fontWeight: '700',
   },
   errorBanner: {
     backgroundColor: colors.dangerSurface,

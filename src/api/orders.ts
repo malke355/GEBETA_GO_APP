@@ -10,11 +10,14 @@ import {
   mockListMyOrders,
   mockListRestaurantOrders,
   mockUpdateOrderStatus,
+  mockUploadPaymentProof,
+  mockRateOrder,
   mockVerifyPayment,
 } from '@/api/mock/orders';
 import { api } from './client';
 import { endpoints } from './endpoints';
 import { ApiError } from './errors';
+import { appendPickedImage, resolveMediaUrl } from './media';
 import type {
   ActiveDeliveryResponse,
   CartLine,
@@ -26,8 +29,11 @@ import type {
   OrderStatus,
   PlaceOrderInput,
 } from '@/types';
+import type { PickedImage } from '@/types/media';
 
-type RawRestaurantRef = string | { _id?: string; name?: string };
+type RawRestaurantRef =
+  | string
+  | { _id?: string; name?: string; location?: { address?: string; lat?: number; lng?: number } };
 type RawDriverRef = string | { _id?: string; name?: string; phone?: string };
 type RawCustomerRef = string | { _id?: string; name?: string; phone?: string };
 
@@ -56,6 +62,16 @@ type RawOrder = Omit<
   customerId?: RawCustomerRef;
   customerName?: string;
   customerPhone?: string;
+  paymentDetails?: { proofImageUrl?: string };
+  restaurantLat?: number;
+  restaurantLng?: number;
+  proofImageUrl?: string;
+  rating?: number;
+  review?: string;
+  deliveryCoordinates?: { lat: number; lng: number };
+  driverLat?: number;
+  driverLng?: number;
+  driverLocation?: { lat?: number; lng?: number };
 };
 
 export function normalizeOrder(raw: RawOrder): Order {
@@ -116,7 +132,15 @@ export function normalizeOrder(raw: RawOrder): Order {
     driverId,
     driverName,
     driverPhone,
-    restaurantAddress: raw.restaurantAddress,
+    restaurantAddress:
+      raw.restaurantAddress ??
+      (typeof restaurantRef === 'object' && restaurantRef ? restaurantRef.location?.address : undefined),
+    restaurantLat:
+      raw.restaurantLat ??
+      (typeof restaurantRef === 'object' && restaurantRef ? restaurantRef.location?.lat : undefined),
+    restaurantLng:
+      raw.restaurantLng ??
+      (typeof restaurantRef === 'object' && restaurantRef ? restaurantRef.location?.lng : undefined),
     deliveredAt:
       raw.deliveredAt === undefined
         ? undefined
@@ -124,6 +148,12 @@ export function normalizeOrder(raw: RawOrder): Order {
           ? raw.deliveredAt
           : new Date(raw.deliveredAt).toISOString(),
     etaMinutes: raw.etaMinutes,
+    proofImageUrl: resolveMediaUrl(raw.proofImageUrl ?? raw.paymentDetails?.proofImageUrl),
+    rating: raw.rating,
+    review: raw.review,
+    deliveryCoordinates: raw.deliveryCoordinates,
+    driverLat: raw.driverLat ?? raw.driverLocation?.lat,
+    driverLng: raw.driverLng ?? raw.driverLocation?.lng,
   };
 }
 
@@ -251,5 +281,25 @@ export async function cancelOrder(id: string): Promise<Order> {
   }
 
   const response = await api.put<CreateOrderResponse>(endpoints.orders.cancel(id), {});
+  return normalizeOrder(response.data);
+}
+
+export async function uploadPaymentProof(id: string, image: PickedImage): Promise<Order> {
+  if (env.useMockApi) {
+    return mockUploadPaymentProof(id, image.uri);
+  }
+
+  const form = new FormData();
+  appendPickedImage(form, 'proofImage', image);
+  const response = await api.upload<CreateOrderResponse>(endpoints.orders.paymentProof(id), form);
+  return normalizeOrder(response.data);
+}
+
+export async function rateOrder(id: string, rating: number, review?: string): Promise<Order> {
+  if (env.useMockApi) {
+    return mockRateOrder(id, rating, review);
+  }
+
+  const response = await api.post<CreateOrderResponse>(endpoints.orders.rate(id), { rating, review });
   return normalizeOrder(response.data);
 }

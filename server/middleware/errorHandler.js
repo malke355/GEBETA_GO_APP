@@ -22,6 +22,9 @@ export const errorHandler = (err, _req, res, _next) => {
   } else if (err.code === 11000) {
     statusCode = 400;
     message = `Duplicate value for ${Object.keys(err.keyValue).join(', ')}`;
+  } else if (err.name === 'MulterError') {
+    statusCode = 400;
+    message = err.code === 'LIMIT_FILE_SIZE' ? 'Image must be 5MB or smaller' : 'Invalid image upload';
   }
 
   if (statusCode >= 500) {

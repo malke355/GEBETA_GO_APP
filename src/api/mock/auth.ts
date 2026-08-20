@@ -9,7 +9,9 @@ import {
   findMockUserById,
   isSelfServiceRole,
   readMockUserIdFromToken,
+  toggleMockFavorite,
   toPublicUser,
+  updateMockUserProfile,
 } from './users';
 
 export async function mockLogin(input: LoginInput): Promise<AuthResponse> {
@@ -103,4 +105,30 @@ export async function mockFetchCurrentUser(): Promise<MeResponse> {
     success: true,
     user: toPublicUser(user),
   };
+}
+
+export async function mockUpdateProfile(input: {
+  name?: string;
+  address?: string;
+  phone?: string;
+}): Promise<MeResponse> {
+  await delay(300);
+  const token = await getAuthToken();
+  const userId = token ? readMockUserIdFromToken(token) : null;
+  if (!userId) {
+    throw new ApiError({ message: 'Not authorized', status: 401, payload: null });
+  }
+  const user = await updateMockUserProfile(userId, input);
+  return { success: true, user };
+}
+
+export async function mockToggleFavorite(restaurantId: string): Promise<MeResponse> {
+  await delay(200);
+  const token = await getAuthToken();
+  const userId = token ? readMockUserIdFromToken(token) : null;
+  if (!userId) {
+    throw new ApiError({ message: 'Not authorized', status: 401, payload: null });
+  }
+  const user = await toggleMockFavorite(userId, restaurantId);
+  return { success: true, user };
 }

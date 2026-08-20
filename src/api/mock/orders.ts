@@ -220,6 +220,9 @@ export async function mockCreateOrder(input: PlaceOrderInput): Promise<Order> {
     status: 'placed',
     deliveryAddress: input.deliveryAddress.trim(),
     restaurantAddress: (await getPersistedRestaurant(input.restaurantId))?.location.address,
+    restaurantLat: (await getPersistedRestaurant(input.restaurantId))?.location.lat,
+    restaurantLng: (await getPersistedRestaurant(input.restaurantId))?.location.lng,
+    deliveryCoordinates: { lat: input.lat, lng: input.lng },
     createdAt: new Date().toISOString(),
   };
 
@@ -537,4 +540,47 @@ export async function mockCancelOrder(id: string): Promise<Order> {
   };
   await writeOrders(orders.map((item) => (item.id === id ? cancelled : item)));
   return cancelled;
+}
+
+export async function mockUploadPaymentProof(id: string, imageUri: string): Promise<Order> {
+  await delay(350);
+  const user = await requireUser();
+  const orders = await readOrders();
+  const order = orders.find((item) => item.id === id);
+  if (!order || !customerOwnsOrder(order, user.id)) {
+    throw new ApiError({ message: 'Order not found', status: 404, payload: null });
+  }
+  if (!['telebirr', 'bank_transfer'].includes(order.paymentMethod)) {
+    throw new ApiError({
+      message: 'This order does not need a payment screenshot',
+      status: 400,
+      payload: null,
+    });
+  }
+  const updated: Order = {
+    ...order,
+    paymentStatus: 'proof_submitted',
+    proofImageUrl: imageUri,
+  };
+  await writeOrders(orders.map((item) => (item.id === id ? updated : item)));
+  return updated;
+}
+
+export async function mockRateOrder(id: string, rating: number, review?: string): Promise<Order> {
+  await delay(300);
+  const user = await requireUser();
+  const orders = await readOrders();
+  const order = orders.find((item) => item.id === id);
+  if (!order || !customerOwnsOrder(order, user.id)) {
+    throw new ApiError({ message: 'Order not found', status: 404, payload: null });
+  }
+  if (order.status !== 'delivered') {
+    throw new ApiError({ message: 'You can only rate a delivered order', status: 400, payload: null });
+  }
+  if (order.rating) {
+    throw new ApiError({ message: 'This order has already been rated', status: 400, payload: null });
+  }
+  const updated: Order = { ...order, rating, review: review ?? '' };
+  await writeOrders(orders.map((item) => (item.id === id ? updated : item)));
+  return updated;
 }

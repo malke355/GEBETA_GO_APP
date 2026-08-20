@@ -7,6 +7,7 @@ import env from './config/env.js';
 import connectDB from './config/db.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
+import { uploadDir } from './middleware/upload.js';
 import authRoutes from './routes/authRoutes.js';
 import restaurantRoutes from './routes/restaurantRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
@@ -43,6 +44,7 @@ app.use(
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use('/uploads', express.static(uploadDir));
 
 app.get('/health', (req, res) => {
   res.status(200).json({

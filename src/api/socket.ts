@@ -36,7 +36,7 @@ export function emitRealtime(event: string, payload?: unknown): void {
   socket?.emit(event, payload);
 }
 
-export function subscribeRealtime(event: string, handler: (payload: OrderStatusPayload) => void): () => void {
+export function subscribeRealtime<T = OrderStatusPayload>(event: string, handler: (payload: T) => void): () => void {
   if (!socket) {
     return () => undefined;
   }

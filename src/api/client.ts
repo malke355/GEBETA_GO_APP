@@ -54,11 +54,11 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
       method,
       headers: {
         Accept: 'application/json',
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(body !== undefined && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
 
@@ -107,4 +107,6 @@ export const api = {
     apiRequest<T>({ ...options, method: 'PATCH', path, body }),
   delete: <T>(path: string, options?: Omit<RequestOptions, 'method' | 'path' | 'body'>) =>
     apiRequest<T>({ ...options, method: 'DELETE', path }),
+  upload: <T>(path: string, form: FormData, options?: Omit<RequestOptions, 'path' | 'body'>) =>
+    apiRequest<T>({ method: 'POST', timeoutMs: 60000, ...options, path, body: form }),
 };

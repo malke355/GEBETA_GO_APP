@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { cancelOrder, getOrder } from '@/api/orders';
+import { cancelOrder, getOrder, rateOrder, uploadPaymentProof } from '@/api/orders';
 import { emitRealtime, subscribeRealtime } from '@/api/socket';
 import { getApiErrorMessage } from '@/api/errors';
-import { AppText, Button } from '@/components';
+import { AppText, Button, MapPreview, TextField } from '@/components';
 import { env } from '@/config';
+import { useLanguage } from '@/i18n';
+import { pickImageFromLibrary } from '@/media/pickImage';
 import { routes } from '@/navigation';
 import { colors, spacing } from '@/theme';
 import type { Order } from '@/types';
@@ -23,9 +25,15 @@ type OrderTrackingScreenProps = {
 export function OrderTrackingScreen({ orderId }: OrderTrackingScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { t } = useLanguage();
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [review, setReview] = useState('');
+  const [ratingBusy, setRatingBusy] = useState(false);
+  const [driverPoint, setDriverPoint] = useState<{ lat: number; lng: number } | null>(null);
 
   const load = useCallback(async (isPoll = false) => {
     if (!orderId) {
@@ -53,15 +61,30 @@ export function OrderTrackingScreen({ orderId }: OrderTrackingScreenProps) {
     }
 
     emitRealtime('join_order', orderId);
-    const unsub = subscribeRealtime('order_status_updated', (payload) => {
+    const unsubStatus = subscribeRealtime('order_status_updated', (payload) => {
       if (!payload.orderId || payload.orderId === orderId) {
         void load(true);
       }
     });
+    const unsubPayment = subscribeRealtime('payment_status_updated', (payload) => {
+      if (!payload.orderId || payload.orderId === orderId) {
+        void load(true);
+      }
+    });
+    const unsubLocation = subscribeRealtime<{ orderId?: string; location?: { lat: number; lng: number } }>(
+      'driver_location_changed',
+      (payload) => {
+        if (payload.orderId === orderId && payload.location) {
+          setDriverPoint(payload.location);
+        }
+      },
+    );
 
     return () => {
       emitRealtime('leave_order', orderId);
-      unsub();
+      unsubStatus();
+      unsubPayment();
+      unsubLocation();
     };
   }, [load, orderId]);
 
@@ -175,6 +198,93 @@ export function OrderTrackingScreen({ orderId }: OrderTrackingScreenProps) {
                     <AppText>{order.driverPhone}</AppText>
                   </View>
                 ) : null}
+                <MapPreview
+                  markers={[
+                    ...(order.restaurantLat && order.restaurantLng
+                      ? [{ lat: order.restaurantLat, lng: order.restaurantLng, label: order.restaurantName }]
+                      : []),
+                    {
+                      lat: driverPoint?.lat ?? order.driverLat ?? order.restaurantLat ?? 9.003,
+                      lng: driverPoint?.lng ?? order.driverLng ?? order.restaurantLng ?? 38.788,
+                      label: order.driverName,
+                    },
+                    ...(order.deliveryCoordinates
+                      ? [{ lat: order.deliveryCoordinates.lat, lng: order.deliveryCoordinates.lng, label: 'You' }]
+                      : []),
+                  ]}
+                />
+              </View>
+            ) : null}
+
+            {['telebirr', 'bank_transfer'].includes(order.paymentMethod) && order.paymentStatus === 'pending' ? (
+              <View style={styles.card}>
+                <AppText style={styles.total}>{t.uploadProof}</AppText>
+                <AppText muted>Take a screenshot of the Telebirr or bank transfer, then send it to the kitchen.</AppText>
+                <Button
+                  label="Choose screenshot"
+                  loading={uploading}
+                  onPress={() => {
+                    void (async () => {
+                      try {
+                        const picked = await pickImageFromLibrary();
+                        if (!picked) {
+                          return;
+                        }
+                        setUploading(true);
+                        setOrder(await uploadPaymentProof(order.id, picked));
+                      } catch (caught) {
+                        Alert.alert('Could not upload', getApiErrorMessage(caught));
+                      } finally {
+                        setUploading(false);
+                      }
+                    })();
+                  }}
+                />
+              </View>
+            ) : null}
+
+            {order.proofImageUrl ? (
+              <View style={styles.card}>
+                <AppText muted>Payment screenshot</AppText>
+                <Image source={{ uri: order.proofImageUrl }} style={styles.proof} />
+                <AppText variant="caption">{order.paymentStatus.split('_').join(' ')}</AppText>
+              </View>
+            ) : null}
+
+            {order.status === 'delivered' && !order.rating ? (
+              <View style={styles.card}>
+                <AppText style={styles.total}>{t.rateOrder}</AppText>
+                <View style={styles.row}>
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <Pressable key={value} onPress={() => setRating(value)}>
+                      <AppText style={value <= rating ? styles.starActive : styles.star}>{value}★</AppText>
+                    </Pressable>
+                  ))}
+                </View>
+                <TextField label="Review (optional)" value={review} onChangeText={setReview} />
+                <Button
+                  label="Submit rating"
+                  loading={ratingBusy}
+                  onPress={() => {
+                    void (async () => {
+                      setRatingBusy(true);
+                      try {
+                        setOrder(await rateOrder(order.id, rating, review.trim()));
+                      } catch (caught) {
+                        Alert.alert('Could not rate', getApiErrorMessage(caught));
+                      } finally {
+                        setRatingBusy(false);
+                      }
+                    })();
+                  }}
+                />
+              </View>
+            ) : null}
+
+            {order.rating ? (
+              <View style={styles.card}>
+                <AppText>Your rating: {order.rating} / 5</AppText>
+                {order.review ? <AppText muted>{order.review}</AppText> : null}
               </View>
             ) : null}
 
@@ -313,6 +423,20 @@ const styles = StyleSheet.create({
   },
   total: {
     fontWeight: '700',
+  },
+  proof: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+  },
+  star: {
+    fontSize: 22,
+    color: colors.textMuted,
+  },
+  starActive: {
+    fontSize: 22,
+    color: colors.primary,
   },
   footer: {
     paddingHorizontal: spacing.lg,

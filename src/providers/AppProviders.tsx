@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/features/auth';
 import { CartProvider } from '@/features/cart';
+import { LanguageProvider } from '@/i18n';
 
 type AppProvidersProps = {
   children: ReactNode;
@@ -14,7 +15,9 @@ export function AppProviders({ children }: AppProvidersProps) {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <AuthProvider>
-          <CartProvider>{children}</CartProvider>
+          <LanguageProvider>
+            <CartProvider>{children}</CartProvider>
+          </LanguageProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

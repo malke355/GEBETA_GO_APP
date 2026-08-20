@@ -11,10 +11,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { toggleFavoriteRequest } from '@/api/auth';
 import { listMyOrders } from '@/api/orders';
 import { AppText, Button } from '@/components';
 import { CartBar, useCart } from '@/features/cart';
+import { useAuth } from '@/features/auth';
+import { OFFERS } from '@/features/offers/offers';
 import { isActiveOrderStatus, statusHeadline } from '@/features/orders';
+import { useLanguage } from '@/i18n';
 import { routes } from '@/navigation';
 import { colors, spacing, typography } from '@/theme';
 import type { Order, Restaurant } from '@/types';
@@ -48,10 +52,13 @@ type CustomerHomeScreenProps = {
 
 export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScreenProps) {
   const router = useRouter();
+  const { user, updateSession } = useAuth();
+  const { t } = useLanguage();
   const { itemCount } = useCart();
   const { restaurants, loading, error, refresh } = useRestaurants();
   const [query, setQuery] = useState('');
   const [cuisine, setCuisine] = useState(ALL_CUISINES);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
   useFocusEffect(
@@ -88,9 +95,11 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
     const normalizedQuery = query.trim().toLowerCase();
     return restaurants.filter((restaurant) => {
       const cuisineMatch = cuisine === ALL_CUISINES || restaurant.cuisineType === cuisine;
-      return cuisineMatch && matchesQuery(restaurant, normalizedQuery);
+      const favoriteMatch =
+        !favoritesOnly || (user?.favoriteIds ?? []).includes(restaurant.id);
+      return cuisineMatch && favoriteMatch && matchesQuery(restaurant, normalizedQuery);
     });
-  }, [restaurants, cuisine, query]);
+  }, [restaurants, cuisine, query, favoritesOnly, user?.favoriteIds]);
 
   return (
     <View style={styles.screen}>
@@ -102,6 +111,9 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
           <AppText variant="title">Hi, {customerName.split(' ')[0] ?? customerName}</AppText>
         </View>
         <View style={styles.headerActions}>
+          <Pressable onPress={() => router.push(routes.profile as Href)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.profile}>
+            <Ionicons name="person-circle-outline" size={24} color={colors.text} />
+          </Pressable>
           <Pressable
             onPress={() => router.push(routes.orders)}
             hitSlop={8}
@@ -149,7 +161,7 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search restaurants or dishes"
+          placeholder={t.searchPlaceholder}
           placeholderTextColor={colors.textMuted}
           style={styles.searchInput}
           autoCapitalize="none"
@@ -172,17 +184,40 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
           renderItem={({ item }) => (
             <RestaurantCard
               restaurant={item}
+              favorited={(user?.favoriteIds ?? []).includes(item.id)}
+              onToggleFavorite={() => {
+                void toggleFavoriteRequest(item.id)
+                  .then(updateSession)
+                  .catch(() => undefined);
+              }}
               onPress={() => router.push(routes.restaurant(item.id) as Href)}
             />
           )}
           contentContainerStyle={[styles.list, itemCount > 0 && styles.listWithCart]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListHeaderComponent={
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chips}
-            >
+            <View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.offers}>
+                {OFFERS.map((offer) => (
+                  <Pressable key={offer.id} onPress={() => router.push(routes.about as Href)} style={styles.offerCard}>
+                    <AppText style={styles.offerTitle}>{offer.title}</AppText>
+                    <AppText variant="caption" muted numberOfLines={2}>
+                      {offer.detail}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Pressable onPress={() => setFavoritesOnly((current) => !current)} style={styles.favoriteToggle}>
+                <Ionicons name={favoritesOnly ? 'heart' : 'heart-outline'} size={16} color={colors.primary} />
+                <AppText variant="caption" style={styles.favoriteToggleText}>
+                  {favoritesOnly ? t.favorites : t.favorites}
+                </AppText>
+              </Pressable>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chips}
+              >
               {cuisines.map((option) => {
                 const selected = option === cuisine;
                 return (
@@ -198,6 +233,7 @@ export function CustomerHomeScreen({ customerName, onLogout }: CustomerHomeScree
                 );
               })}
             </ScrollView>
+            </View>
           }
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={() => void refresh()} tintColor={colors.primary} />
@@ -331,5 +367,31 @@ const styles = StyleSheet.create({
   empty: {
     textAlign: 'center',
     marginTop: spacing.xl,
+  },
+  offers: {
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  offerCard: {
+    width: 220,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 16,
+    padding: spacing.md,
+    gap: 4,
+  },
+  offerTitle: {
+    fontWeight: '700',
+  },
+  favoriteToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: spacing.sm,
+  },
+  favoriteToggleText: {
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

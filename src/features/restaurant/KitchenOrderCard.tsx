@@ -1,4 +1,4 @@
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { useState } from 'react';
 import { cancelOrder, updateOrderStatus, verifyOrderPayment } from '@/api/orders';
 import { getApiErrorMessage } from '@/api/errors';
@@ -59,6 +59,7 @@ export function KitchenOrderCard({ order, onUpdated }: KitchenOrderCardProps) {
           {order.paymentStatus.split('_').join(' ')}
         </AppText>
       </View>
+      {order.proofImageUrl ? <Image source={{ uri: order.proofImageUrl }} style={styles.proof} /> : null}
       <View style={styles.itemRow}>
         <AppText style={styles.total}>Total</AppText>
         <AppText style={styles.total}>ETB {order.totalAmount}</AppText>
@@ -170,6 +171,12 @@ const styles = StyleSheet.create({
   },
   paymentStatus: {
     textTransform: 'capitalize',
+  },
+  proof: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: colors.background,
   },
   total: {
     fontWeight: '700',

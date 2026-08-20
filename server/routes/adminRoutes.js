@@ -6,6 +6,7 @@ import Restaurant from '../models/Restaurant.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
+import { emitOrderUpdate } from '../utils/realtime.js';
 
 const router = express.Router();
 
@@ -169,6 +170,61 @@ router.put(
   }),
 );
 
+// @route DELETE /api/admin/users/:id
+// @desc Delete a user and cancel their open work
+// @access Private (Admin)
+router.delete(
+  '/users/:id',
+  [param('id').isMongoId()],
+  validate,
+  asyncHandler(async (req, res) => {
+    if (String(req.user._id) === req.params.id) {
+      throw new ApiError(400, 'You cannot delete your own account');
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    if (user.role === 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount <= 1) {
+        throw new ApiError(400, 'Cannot delete the last remaining admin account');
+      }
+    }
+
+    if (user.role === 'restaurant') {
+      const restaurants = await Restaurant.find({ ownerId: user._id }).select('_id');
+      const restaurantIds = restaurants.map((item) => item._id);
+      if (restaurantIds.length) {
+        await Order.updateMany(
+          { restaurantId: { $in: restaurantIds }, status: { $nin: ['delivered', 'cancelled'] } },
+          { status: 'cancelled', cancelledBy: 'admin', cancelReason: 'Restaurant account removed' },
+        );
+        await Restaurant.deleteMany({ _id: { $in: restaurantIds } });
+      }
+    }
+
+    if (user.role === 'driver') {
+      await Order.updateMany(
+        { driverId: user._id, status: { $in: ['dispatched', 'picked_up'] } },
+        { driverId: null, status: 'prepared' },
+      );
+    }
+
+    if (user.role === 'customer') {
+      await Order.updateMany(
+        { customerId: user._id, status: { $nin: ['delivered', 'cancelled'] } },
+        { status: 'cancelled', cancelledBy: 'admin', cancelReason: 'Customer account removed' },
+      );
+    }
+
+    await user.deleteOne();
+    res.status(200).json({ success: true, message: 'User removed successfully' });
+  }),
+);
+
 // @route GET /api/admin/restaurants
 // @desc List every restaurant with its owner and order volume
 // @access Private (Admin)
@@ -213,6 +269,28 @@ router.put(
   }),
 );
 
+// @route DELETE /api/admin/restaurants/:id
+// @desc Delete a restaurant and cancel its open orders
+// @access Private (Admin)
+router.delete(
+  '/restaurants/:id',
+  [param('id').isMongoId()],
+  validate,
+  asyncHandler(async (req, res) => {
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) {
+      throw new ApiError(404, 'Restaurant not found');
+    }
+
+    await Order.updateMany(
+      { restaurantId: restaurant._id, status: { $nin: ['delivered', 'cancelled'] } },
+      { status: 'cancelled', cancelledBy: 'admin', cancelReason: 'Restaurant removed by admin' },
+    );
+    await restaurant.deleteOne();
+    res.status(200).json({ success: true, message: 'Restaurant removed successfully' });
+  }),
+);
+
 // @route GET /api/admin/orders
 // @desc Order oversight with filtering and pagination
 // @access Private (Admin)
@@ -251,6 +329,43 @@ router.get(
       data: orders,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 },
     });
+  }),
+);
+
+// @route PUT /api/admin/orders/:id/assign-driver
+// @desc Assign or reassign a driver
+// @access Private (Admin)
+router.put(
+  '/orders/:id/assign-driver',
+  [param('id').isMongoId(), body('driverId').isMongoId().withMessage('A valid driver is required')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const driver = await User.findOne({ _id: req.body.driverId, role: 'driver' });
+    if (!driver) {
+      throw new ApiError(404, 'Driver not found');
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      throw new ApiError(404, 'Order not found');
+    }
+    if (['delivered', 'cancelled'].includes(order.status)) {
+      throw new ApiError(400, `Cannot reassign a ${order.status} order`);
+    }
+
+    order.driverId = driver._id;
+    if (order.status === 'prepared') {
+      order.status = 'dispatched';
+    }
+    await order.save();
+
+    const populated = await order.populate([
+      { path: 'customerId', select: 'name phone address' },
+      { path: 'restaurantId', select: 'name location ownerId' },
+      { path: 'driverId', select: 'name phone' },
+    ]);
+    emitOrderUpdate(req, populated);
+    res.status(200).json({ success: true, data: populated });
   }),
 );
 

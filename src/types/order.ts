@@ -51,8 +51,19 @@ export type Order = {
   driverName?: string;
   driverPhone?: string;
   restaurantAddress?: string;
+  restaurantLat?: number;
+  restaurantLng?: number;
   deliveredAt?: string;
   etaMinutes?: number;
+  proofImageUrl?: string;
+  rating?: number;
+  review?: string;
+  deliveryCoordinates?: {
+    lat: number;
+    lng: number;
+  };
+  driverLat?: number;
+  driverLng?: number;
 };
 
 export type CreateOrderResponse = {

@@ -2,6 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { body } from 'express-validator';
 import User from '../models/User.js';
+import Restaurant from '../models/Restaurant.js';
 import { protect } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
@@ -27,6 +28,7 @@ const toPublicUser = (user) => ({
   address: user.address,
   phone: user.phone,
   isSuspended: user.isSuspended,
+  favoriteIds: (user.favorites || []).map((id) => String(id)),
 });
 
 const registerValidators = [
@@ -132,6 +134,65 @@ router.get(
   protect,
   asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, user: toPublicUser(req.user) });
+  }),
+);
+
+// @route PUT /api/auth/profile
+// @desc Update the logged in user's own profile
+// @access Private
+router.put(
+  '/profile',
+  protect,
+  [
+    body('name').optional({ values: 'falsy' }).trim().notEmpty().isLength({ max: 80 }),
+    body('address').optional({ values: 'falsy' }).trim().isLength({ max: 200 }),
+    body('phone')
+      .optional({ values: 'falsy' })
+      .trim()
+      .matches(ETHIOPIAN_PHONE)
+      .withMessage('Phone must be +2519 followed by 8 digits'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    const { name, address, phone } = req.body;
+    if (name) user.name = name;
+    if (address !== undefined) user.address = address;
+    if (phone) user.phone = phone;
+    await user.save();
+
+    res.status(200).json({ success: true, user: toPublicUser(user) });
+  }),
+);
+
+// @route PUT /api/auth/favorites
+// @desc Toggle a restaurant favorite
+// @access Private (Customer)
+router.put(
+  '/favorites',
+  protect,
+  [body('restaurantId').isMongoId().withMessage('A valid restaurant is required')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const restaurant = await Restaurant.findById(req.body.restaurantId);
+    if (!restaurant) {
+      throw new ApiError(404, 'Restaurant not found');
+    }
+
+    const user = await User.findById(req.user.id);
+    const alreadySaved = user.favorites.some((id) => id.toString() === restaurant._id.toString());
+    if (alreadySaved) {
+      user.favorites = user.favorites.filter((id) => id.toString() !== restaurant._id.toString());
+    } else {
+      user.favorites.push(restaurant._id);
+    }
+    await user.save();
+
+    res.status(200).json({ success: true, user: toPublicUser(user) });
   }),
 );
 
