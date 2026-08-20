@@ -53,6 +53,19 @@ const assertRestaurantOwnership = async (order, user) => {
   }
 };
 
+const serializeOrder = (order) => {
+  if (!order) {
+    return null;
+  }
+
+  const data = typeof order.toObject === 'function' ? order.toObject() : { ...order };
+  if (data.restaurantId && typeof data.restaurantId === 'object') {
+    data.restaurantName = data.restaurantName || data.restaurantId.name;
+    data.restaurantAddress = data.restaurantAddress || data.restaurantId.location?.address;
+  }
+  return data;
+};
+
 // @route POST /api/orders
 // @desc Create a new order
 // @access Private (Customer only)
@@ -117,7 +130,7 @@ router.post(
     });
 
     const populated = await order.populate(ORDER_POPULATE);
-    res.status(201).json({ success: true, data: populated });
+    res.status(201).json({ success: true, data: serializeOrder(populated) });
   }),
 );
 
@@ -134,7 +147,7 @@ router.get(
       .sort({ createdAt: -1 })
       .limit(100);
 
-    res.status(200).json({ success: true, data: orders });
+    res.status(200).json({ success: true, data: orders.map(serializeOrder) });
   }),
 );
 
@@ -157,24 +170,131 @@ router.get(
       .sort({ createdAt: -1 })
       .limit(200);
 
-    res.status(200).json({ success: true, data: orders });
+    res.status(200).json({ success: true, data: orders.map(serializeOrder) });
   }),
 );
 
-const KITCHEN_TRANSITIONS = {
-  confirmed: 'placed',
-  prepared: 'confirmed',
+// @route GET /api/orders/driver/available
+// @desc Get unassigned prepared orders
+// @access Private (Driver only)
+router.get(
+  '/driver/available',
+  protect,
+  authorize('driver', 'admin'),
+  asyncHandler(async (_req, res) => {
+    const orders = await Order.find({ status: 'prepared', driverId: null })
+      .populate('restaurantId', 'name location imageUrl')
+      .populate('customerId', 'name address phone')
+      .sort({ createdAt: 1 });
+
+    res.status(200).json({ success: true, data: orders.map(serializeOrder) });
+  }),
+);
+
+// @route GET /api/orders/driver/active
+// @desc Get the driver's current delivery
+// @access Private (Driver only)
+router.get(
+  '/driver/active',
+  protect,
+  authorize('driver', 'admin'),
+  asyncHandler(async (req, res) => {
+    const activeOrder = await Order.findOne({
+      driverId: req.user.id,
+      status: { $in: ['dispatched', 'picked_up'] },
+    })
+      .populate('restaurantId', 'name location imageUrl')
+      .populate('customerId', 'name address phone');
+
+    res.status(200).json({ success: true, data: serializeOrder(activeOrder) });
+  }),
+);
+
+// @route GET /api/orders/driver/history
+// @desc Completed deliveries and earnings for the logged in driver
+// @access Private (Driver only)
+router.get(
+  '/driver/history',
+  protect,
+  authorize('driver', 'admin'),
+  asyncHandler(async (req, res) => {
+    const orders = await Order.find({ driverId: req.user.id, status: 'delivered' })
+      .populate('restaurantId', 'name')
+      .sort({ deliveredAt: -1, updatedAt: -1 })
+      .limit(100);
+
+    const totalEarnings = orders.reduce((sum, order) => sum + (order.deliveryFee || 0), 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        orders: orders.map(serializeOrder),
+        totalDeliveries: orders.length,
+        totalEarnings,
+      },
+    });
+  }),
+);
+
+const STATUS_PERMISSIONS = {
+  confirmed: ['restaurant'],
+  prepared: ['restaurant'],
+  picked_up: ['driver'],
+  delivered: ['driver'],
 };
 
+const STATUS_TRANSITIONS = {
+  confirmed: { from: 'placed', message: 'Only a new order can be confirmed' },
+  prepared: { from: 'confirmed', message: 'Confirm the order before marking it prepared' },
+  picked_up: { from: 'dispatched', message: 'Pick up the order after it has been dispatched' },
+  delivered: { from: 'picked_up', message: 'Mark the order picked up before completing delivery' },
+};
+
+// @route PUT /api/orders/:id/accept
+// @desc Driver accepts a delivery job
+// @access Private (Driver only)
+router.put(
+  '/:id/accept',
+  protect,
+  authorize('driver', 'admin'),
+  [param('id').isMongoId()],
+  validate,
+  asyncHandler(async (req, res) => {
+    const existing = await Order.findOne({
+      driverId: req.user.id,
+      status: { $in: ['dispatched', 'picked_up'] },
+    });
+    if (existing) {
+      throw new ApiError(400, 'Finish your current delivery before accepting another job');
+    }
+
+    // A conditional update makes the claim atomic, so two drivers racing for the
+    // same job cannot both succeed.
+    const order = await Order.findOneAndUpdate(
+      { _id: req.params.id, status: 'prepared', driverId: null },
+      { driverId: req.user.id, status: 'dispatched' },
+      { new: true },
+    ).populate(ORDER_POPULATE);
+
+    if (!order) {
+      throw new ApiError(400, 'This job is no longer available');
+    }
+
+    res.status(200).json({ success: true, data: serializeOrder(order) });
+  }),
+);
+
 // @route PUT /api/orders/:id/status
-// @desc Advance an order through the kitchen fulfilment flow
-// @access Private (Restaurant / Admin)
+// @desc Advance an order through the fulfilment flow
+// @access Private (Restaurant / Driver / Admin)
 router.put(
   '/:id/status',
   protect,
   [
     param('id').isMongoId(),
-    body('status').isIn(['confirmed', 'prepared']).withMessage('Unsupported status transition'),
+    body('status')
+      .isIn(['confirmed', 'prepared', 'picked_up', 'delivered'])
+      .withMessage('Unsupported status transition'),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -188,24 +308,38 @@ router.put(
       throw new ApiError(400, `This order is already ${order.status}`);
     }
 
-    if (req.user.role !== 'admin' && req.user.role !== 'restaurant') {
+    const allowedRoles = STATUS_PERMISSIONS[status] || [];
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin && !allowedRoles.includes(req.user.role)) {
       throw new ApiError(403, 'Not authorized to set this order status');
     }
 
-    await assertRestaurantOwnership(order, req.user);
+    if (req.user.role === 'restaurant') {
+      await assertRestaurantOwnership(order, req.user);
+    }
 
-    if (order.status !== KITCHEN_TRANSITIONS[status]) {
-      if (status === 'confirmed') {
-        throw new ApiError(400, 'Only a new order can be confirmed');
-      }
-      throw new ApiError(400, 'Confirm the order before marking it prepared');
+    if (req.user.role === 'driver' && order.driverId?.toString() !== req.user.id) {
+      throw new ApiError(403, 'Not authorized: you are not the driver assigned to this order.');
+    }
+
+    const transition = STATUS_TRANSITIONS[status];
+    if (transition && order.status !== transition.from) {
+      throw new ApiError(400, transition.message);
     }
 
     order.status = status;
-    await order.save();
 
+    if (status === 'delivered') {
+      order.deliveredAt = new Date();
+      if (order.paymentMethod === 'cash') {
+        order.paymentStatus = 'paid';
+      }
+    }
+
+    await order.save();
     const populated = await order.populate(ORDER_POPULATE);
-    res.status(200).json({ success: true, data: populated });
+    res.status(200).json({ success: true, data: serializeOrder(populated) });
   }),
 );
 
@@ -231,7 +365,7 @@ router.put(
     await order.save();
 
     const populated = await order.populate(ORDER_POPULATE);
-    res.status(200).json({ success: true, data: populated });
+    res.status(200).json({ success: true, data: serializeOrder(populated) });
   }),
 );
 
@@ -277,7 +411,7 @@ router.put(
     await order.save();
 
     const populated = await order.populate(ORDER_POPULATE);
-    res.status(200).json({ success: true, data: populated });
+    res.status(200).json({ success: true, data: serializeOrder(populated) });
   }),
 );
 
@@ -305,7 +439,7 @@ router.get(
       throw new ApiError(403, 'Access denied: you are not authorized to view this order.');
     }
 
-    res.status(200).json({ success: true, data: order });
+    res.status(200).json({ success: true, data: serializeOrder(order) });
   }),
 );
 
