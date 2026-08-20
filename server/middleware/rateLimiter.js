@@ -11,3 +11,11 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: jsonMessage('Too many requests. Please slow down.'),
 });
+
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20 * scale,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: jsonMessage('Too many login attempts. Please try again later.'),
+});

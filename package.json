@@ -9,7 +9,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "server": "npm run dev --prefix server"
+    "server": "npm run dev --prefix server",
+    "seed:users": "npm run seed:users --prefix server"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
