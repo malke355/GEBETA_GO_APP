@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "server": "npm run dev --prefix server",
-    "seed:users": "npm run seed:users --prefix server"
+    "seed:users": "npm run seed:users --prefix server",
+    "seed:restaurants": "npm run seed:restaurants --prefix server",
+    "seed": "npm run seed --prefix server"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

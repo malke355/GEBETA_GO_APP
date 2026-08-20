@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed:users": "node scripts/seedUsers.js"
+    "seed:users": "node scripts/seedUsers.js",
+    "seed:restaurants": "node scripts/seedRestaurants.js",
+    "seed": "npm run seed:users && npm run seed:restaurants"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
