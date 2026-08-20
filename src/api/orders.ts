@@ -58,7 +58,7 @@ type RawOrder = Omit<
   customerPhone?: string;
 };
 
-function normalizeOrder(raw: RawOrder): Order {
+export function normalizeOrder(raw: RawOrder): Order {
   const restaurantRef = raw.restaurantId;
   const restaurantId =
     typeof restaurantRef === 'string'

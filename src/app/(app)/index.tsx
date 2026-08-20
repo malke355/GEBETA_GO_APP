@@ -1,5 +1,6 @@
 import { Screen } from '@/components';
 import { useAuth } from '@/features/auth';
+import { AdminDashboardScreen } from '@/features/admin';
 import { CustomerHomeScreen, RoleHomePlaceholder } from '@/features/customer';
 import { DriverDashboardScreen } from '@/features/driver';
 import { RestaurantDashboardScreen } from '@/features/restaurant';
@@ -31,6 +32,14 @@ export default function AppHomeScreen() {
     return (
       <Screen padded={false}>
         <DriverDashboardScreen driverName={user.name} onLogout={() => void logout()} />
+      </Screen>
+    );
+  }
+
+  if (user.role === 'admin') {
+    return (
+      <Screen padded={false}>
+        <AdminDashboardScreen adminName={user.name} adminId={user.id} onLogout={() => void logout()} />
       </Screen>
     );
   }

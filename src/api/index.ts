@@ -4,6 +4,14 @@ export { ApiError, getApiErrorMessage } from './errors';
 export { getAuthToken, setAuthToken } from './token';
 export { connectRealtime, disconnectRealtime, emitRealtime, subscribeRealtime } from './socket';
 export { loginRequest, registerRequest, fetchCurrentUser } from './auth';
+export {
+  fetchAdminOrders,
+  fetchAdminRestaurants,
+  fetchAdminStats,
+  fetchAdminUsers,
+  setRestaurantSuspended,
+  setUserSuspended,
+} from './admin';
 export { addMenuItem, createRestaurant, getMyRestaurant, getRestaurant, listRestaurants, normalizeRestaurant } from './restaurants';
 export {
   acceptJob,

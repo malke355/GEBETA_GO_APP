@@ -25,4 +25,12 @@ export const endpoints = {
     cancel: (id: string) => `/api/orders/${id}/cancel`,
     verifyPayment: (id: string) => `/api/orders/${id}/verify-payment`,
   },
+  admin: {
+    stats: '/api/admin/stats',
+    users: '/api/admin/users',
+    updateUser: (id: string) => `/api/admin/users/${id}`,
+    restaurants: '/api/admin/restaurants',
+    updateRestaurant: (id: string) => `/api/admin/restaurants/${id}`,
+    orders: '/api/admin/orders',
+  },
 } as const;

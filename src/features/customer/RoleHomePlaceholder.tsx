@@ -27,7 +27,7 @@ export function RoleHomePlaceholder({ name, role, onLogout }: RoleHomePlaceholde
         </AppText>
       </View>
       <AppText muted>
-        The admin dashboard is not built yet.
+        The selected role does not have a home screen yet.
       </AppText>
       <Button label="Log out" variant="secondary" onPress={onLogout} />
     </Screen>

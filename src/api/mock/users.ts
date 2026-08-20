@@ -7,6 +7,7 @@ export type MockUser = AuthUser & {
 };
 
 const EXTRA_USERS_KEY = 'gebetago.mockUsers';
+const SUSPENDED_USERS_KEY = 'gebetago.userSuspended';
 const DEMO_PASSWORD = 'password123';
 
 export const DEMO_USERS: MockUser[] = [
@@ -98,7 +99,24 @@ async function loadExtraUsers(): Promise<MockUser[]> {
 
 export async function listMockUsers(): Promise<MockUser[]> {
   const extras = await loadExtraUsers();
-  return [...DEMO_USERS, ...extras];
+  const raw = await getStoredItem(SUSPENDED_USERS_KEY);
+  const suspended = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+  return [...DEMO_USERS, ...extras].map((user) =>
+    suspended[user.id] === undefined ? user : { ...user, isSuspended: suspended[user.id] },
+  );
+}
+
+export async function setMockUserSuspended(id: string, isSuspended: boolean): Promise<AuthUser> {
+  const user = await findMockUserById(id);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const raw = await getStoredItem(SUSPENDED_USERS_KEY);
+  const suspended = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+  suspended[id] = isSuspended;
+  await setStoredItem(SUSPENDED_USERS_KEY, JSON.stringify(suspended));
+  return toPublicUser({ ...user, isSuspended });
 }
 
 export async function findMockUserByEmail(email: string): Promise<MockUser | undefined> {

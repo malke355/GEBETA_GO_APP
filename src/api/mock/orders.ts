@@ -18,6 +18,10 @@ async function writeOrders(orders: Order[]): Promise<void> {
   await setJsonItem(ORDERS_KEY, orders);
 }
 
+export async function listAllMockOrders(): Promise<Order[]> {
+  return readOrders();
+}
+
 function customerOwnsOrder(order: Order, userId: string): boolean {
   return (order.customerId ?? 'customer-1') === userId;
 }

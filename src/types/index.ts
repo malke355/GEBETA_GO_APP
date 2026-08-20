@@ -42,3 +42,13 @@ export type {
   PaymentStatus,
   PlaceOrderInput,
 } from './order';
+
+export type {
+  AdminOrdersResponse,
+  AdminRestaurant,
+  AdminRestaurantsResponse,
+  AdminStats,
+  AdminStatsResponse,
+  AdminUser,
+  AdminUsersResponse,
+} from './admin';
