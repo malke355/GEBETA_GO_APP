@@ -9,6 +9,7 @@ import { apiLimiter } from './middleware/rateLimiter.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import restaurantRoutes from './routes/restaurantRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
 
 await connectDB();
 
@@ -52,6 +53,7 @@ app.get('/health', (req, res) => {
 app.use('/api', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/orders', orderRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
