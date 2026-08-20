@@ -138,6 +138,103 @@ router.get(
   }),
 );
 
+// @route GET /api/orders/restaurant
+// @desc Get restaurant owner's orders
+// @access Private (Restaurant Owner)
+router.get(
+  '/restaurant',
+  protect,
+  authorize('restaurant', 'admin'),
+  asyncHandler(async (req, res) => {
+    const restaurant = await Restaurant.findOne({ ownerId: req.user.id });
+    if (!restaurant) {
+      throw new ApiError(404, 'Restaurant profile not found');
+    }
+
+    const orders = await Order.find({ restaurantId: restaurant._id })
+      .populate('customerId', 'name phone')
+      .populate('driverId', 'name phone')
+      .sort({ createdAt: -1 })
+      .limit(200);
+
+    res.status(200).json({ success: true, data: orders });
+  }),
+);
+
+const KITCHEN_TRANSITIONS = {
+  confirmed: 'placed',
+  prepared: 'confirmed',
+};
+
+// @route PUT /api/orders/:id/status
+// @desc Advance an order through the kitchen fulfilment flow
+// @access Private (Restaurant / Admin)
+router.put(
+  '/:id/status',
+  protect,
+  [
+    param('id').isMongoId(),
+    body('status').isIn(['confirmed', 'prepared']).withMessage('Unsupported status transition'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      throw new ApiError(404, 'Order not found');
+    }
+
+    if (['delivered', 'cancelled'].includes(order.status)) {
+      throw new ApiError(400, `This order is already ${order.status}`);
+    }
+
+    if (req.user.role !== 'admin' && req.user.role !== 'restaurant') {
+      throw new ApiError(403, 'Not authorized to set this order status');
+    }
+
+    await assertRestaurantOwnership(order, req.user);
+
+    if (order.status !== KITCHEN_TRANSITIONS[status]) {
+      if (status === 'confirmed') {
+        throw new ApiError(400, 'Only a new order can be confirmed');
+      }
+      throw new ApiError(400, 'Confirm the order before marking it prepared');
+    }
+
+    order.status = status;
+    await order.save();
+
+    const populated = await order.populate(ORDER_POPULATE);
+    res.status(200).json({ success: true, data: populated });
+  }),
+);
+
+// @route PUT /api/orders/:id/verify-payment
+// @desc Restaurant or admin confirms a submitted payment
+// @access Private (Owning restaurant / Admin)
+router.put(
+  '/:id/verify-payment',
+  protect,
+  authorize('restaurant', 'admin'),
+  [param('id').isMongoId(), body('approved').optional().isBoolean()],
+  validate,
+  asyncHandler(async (req, res) => {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      throw new ApiError(404, 'Order not found');
+    }
+
+    await assertRestaurantOwnership(order, req.user);
+
+    const approved = req.body.approved !== false;
+    order.paymentStatus = approved ? 'verified' : 'failed';
+    await order.save();
+
+    const populated = await order.populate(ORDER_POPULATE);
+    res.status(200).json({ success: true, data: populated });
+  }),
+);
+
 // @route PUT /api/orders/:id/cancel
 // @desc Cancel an order
 // @access Private (Customer / Restaurant / Admin)
