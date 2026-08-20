@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { fetchCurrentUser, loginRequest, normalizeUser, registerRequest } from '@/api/auth';
+import { connectRealtime, disconnectRealtime } from '@/api/socket';
 import { ApiError } from '@/api/errors';
 import { clearAuthToken, loadAuthToken, saveAuthToken } from '@/storage/secureStorage';
 import type { AuthUser, LoginInput, RegisterInput } from '@/types';
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(async () => {
+    disconnectRealtime();
     await clearAuthToken();
     setUser(null);
   }, []);
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         if (!cancelled) {
+          await connectRealtime();
           setUser(nextUser);
         }
       } catch {
@@ -74,6 +77,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const data = await loginRequest(input);
     const nextUser = normalizeUser(data.user);
     await saveAuthToken(data.token);
+    await connectRealtime();
     setUser(nextUser);
   }, []);
 
@@ -81,6 +85,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const data = await registerRequest(input);
     const nextUser = normalizeUser(data.user);
     await saveAuthToken(data.token);
+    await connectRealtime();
     setUser(nextUser);
   }, []);
 

@@ -16,8 +16,10 @@ import {
   listDriverHistory,
   updateOrderStatus,
 } from '@/api/orders';
+import { subscribeRealtime } from '@/api/socket';
 import { getApiErrorMessage } from '@/api/errors';
 import { AppText, Button } from '@/components';
+import { env } from '@/config';
 import { PAYMENT_LABELS, statusLabel } from '@/features/orders';
 import { colors, spacing } from '@/theme';
 import type { DriverHistory, Order } from '@/types';
@@ -69,6 +71,23 @@ export function DriverDashboardScreen({ driverName, onLogout }: DriverDashboardS
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (env.useMockApi) {
+      return;
+    }
+
+    const refresh = () => {
+      void load();
+    };
+
+    const offJob = subscribeRealtime('new_job', refresh);
+    const offStatus = subscribeRealtime('order_status_updated', refresh);
+    return () => {
+      offJob();
+      offStatus();
+    };
   }, [load]);
 
   useEffect(() => {

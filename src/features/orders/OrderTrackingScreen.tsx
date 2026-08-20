@@ -4,8 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cancelOrder, getOrder } from '@/api/orders';
+import { emitRealtime, subscribeRealtime } from '@/api/socket';
 import { getApiErrorMessage } from '@/api/errors';
 import { AppText, Button } from '@/components';
+import { env } from '@/config';
 import { routes } from '@/navigation';
 import { colors, spacing } from '@/theme';
 import type { Order } from '@/types';
@@ -44,6 +46,24 @@ export function OrderTrackingScreen({ orderId }: OrderTrackingScreenProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (env.useMockApi || !orderId) {
+      return;
+    }
+
+    emitRealtime('join_order', orderId);
+    const unsub = subscribeRealtime('order_status_updated', (payload) => {
+      if (!payload.orderId || payload.orderId === orderId) {
+        void load(true);
+      }
+    });
+
+    return () => {
+      emitRealtime('leave_order', orderId);
+      unsub();
+    };
+  }, [load, orderId]);
 
   useEffect(() => {
     if (!order || !isActiveOrderStatus(order.status)) {

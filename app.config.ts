@@ -47,5 +47,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     appEnv: process.env.EXPO_PUBLIC_APP_ENV,
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    useMockApi: process.env.EXPO_PUBLIC_USE_MOCK_API,
   },
 });

@@ -2,6 +2,7 @@ export { api, apiRequest, type HttpMethod, type RequestOptions, type RequestQuer
 export { endpoints } from './endpoints';
 export { ApiError, getApiErrorMessage } from './errors';
 export { getAuthToken, setAuthToken } from './token';
+export { connectRealtime, disconnectRealtime, emitRealtime, subscribeRealtime } from './socket';
 export { loginRequest, registerRequest, fetchCurrentUser } from './auth';
 export { addMenuItem, createRestaurant, getMyRestaurant, getRestaurant, listRestaurants, normalizeRestaurant } from './restaurants';
 export {

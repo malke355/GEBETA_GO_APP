@@ -240,7 +240,11 @@ export function AuthScreen() {
             <AppText variant="caption" muted>
               Offline demo mode. Try customer@test.com / password123
             </AppText>
-          ) : null}
+          ) : (
+            <AppText variant="caption" muted>
+              Live API. Start npm run server, then try customer@test.com / password123
+            </AppText>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>

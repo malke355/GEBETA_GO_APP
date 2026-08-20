@@ -12,8 +12,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { listRestaurantOrders } from '@/api/orders';
 import { createRestaurant, getMyRestaurant } from '@/api/restaurants';
+import { subscribeRealtime } from '@/api/socket';
 import { getApiErrorMessage } from '@/api/errors';
 import { AppText, Button, TextField } from '@/components';
+import { env } from '@/config';
 import { isActiveOrderStatus } from '@/features/orders';
 import { colors, spacing } from '@/theme';
 import type { Order, Restaurant } from '@/types';
@@ -66,6 +68,25 @@ export function RestaurantDashboardScreen({ ownerName, onLogout }: RestaurantDas
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (env.useMockApi) {
+      return;
+    }
+
+    const refresh = () => {
+      void load();
+    };
+
+    const offOrder = subscribeRealtime('new_order', refresh);
+    const offStatus = subscribeRealtime('order_status_updated', refresh);
+    const offPayment = subscribeRealtime('payment_status_updated', refresh);
+    return () => {
+      offOrder();
+      offStatus();
+      offPayment();
+    };
   }, [load]);
 
   useEffect(() => {

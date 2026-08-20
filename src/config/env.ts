@@ -5,13 +5,8 @@ const APP_ENVS = ['development', 'staging', 'production'] as const;
 
 export type AppEnv = (typeof APP_ENVS)[number];
 
-function readEnv(key: string, fallback: string): string {
-  const value = process.env[key];
-  return value && value.length > 0 ? value : fallback;
-}
-
 function readAppEnv(): AppEnv {
-  const value = readEnv('EXPO_PUBLIC_APP_ENV', 'development');
+  const value = process.env.EXPO_PUBLIC_APP_ENV;
   return APP_ENVS.includes(value as AppEnv) ? (value as AppEnv) : 'development';
 }
 
@@ -22,7 +17,7 @@ function inferLanHost(): string | null {
 }
 
 function resolveApiUrl(): string {
-  const configured = readEnv('EXPO_PUBLIC_API_URL', 'http://localhost:5000').replace(/\/$/, '');
+  const configured = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
 
   if (Platform.OS === 'web') {
     return configured;
@@ -36,15 +31,15 @@ function resolveApiUrl(): string {
   return configured;
 }
 
-function readBooleanEnv(key: string, fallback: boolean): boolean {
-  const value = process.env[key];
+function readMockFlag(): boolean {
+  const value = process.env.EXPO_PUBLIC_USE_MOCK_API;
   if (value === 'true') {
     return true;
   }
   if (value === 'false') {
     return false;
   }
-  return fallback;
+  return false;
 }
 
 const appEnv = readAppEnv();
@@ -52,7 +47,7 @@ const appEnv = readAppEnv();
 export const env = {
   appEnv,
   apiUrl: resolveApiUrl(),
-  apiTimeoutMs: Number(readEnv('EXPO_PUBLIC_API_TIMEOUT_MS', '15000')),
+  apiTimeoutMs: Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS ?? '15000'),
   isDev: appEnv === 'development',
-  useMockApi: readBooleanEnv('EXPO_PUBLIC_USE_MOCK_API', true),
+  useMockApi: readMockFlag(),
 } as const;
