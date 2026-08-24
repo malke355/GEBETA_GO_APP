@@ -83,17 +83,6 @@ EXPO_PUBLIC_USE_MOCK_API=false
 
 To try the UI without a server, set `EXPO_PUBLIC_USE_MOCK_API=true`.
 
-## Demo accounts
-
-After `npm run seed` (password for all: `password123`):
-
-| Role | Email |
-| --- | --- |
-| Customer | `customer@test.com` |
-| Courier | `driver@test.com` |
-| Admin | `admin@test.com` |
-| Kitchen | `lucy@test.com`, `pizzahut@test.com`, `burgerhouse@test.com`, `ayat@test.com`, `yod@test.com`, `castelli@test.com` |
-
 New sign-ups need an Ethiopian phone: `+2519` followed by 8 digits.
 
 ## Live backend
@@ -129,7 +118,7 @@ The `preview` profile produces an installable APK wired to the live API (`EXPO_P
 | --- | --- |
 | `npx expo start` | Metro bundler |
 | `npm run server` | API in watch mode |
-| `npm run seed` | Demo users and restaurants |
+| `npm run seed` | Seed restaurants into the database |
 | `npm run typecheck` | TypeScript check |
 
 ## License
