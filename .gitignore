@@ -45,3 +45,9 @@ yarn-error.*
 # uploaded images
 server/uploads/*
 !server/uploads/.gitkeep
+
+# leftover clone — never commit
+GEBETA_GO_APP/
+
+# local installers
+*.apk
