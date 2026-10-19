@@ -252,12 +252,26 @@ export function AuthScreen() {
           </Pressable>
 
           {env.useMockApi ? (
-            <AppText variant="caption" muted>
-              Offline demo mode. Try customer@test.com / password123
-            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setIsLogin(true);
+                setRole('customer');
+                setEmail('customer@test.com');
+                setPassword('password123');
+                setFormError(null);
+                setFieldErrors({});
+              }}
+              style={styles.demoBanner}
+            >
+              <AppText style={styles.demoTitle}>Offline demo mode</AppText>
+              <AppText muted>
+                Tap to fill Customer login: customer@test.com / password123
+              </AppText>
+            </Pressable>
           ) : (
             <AppText variant="caption" muted>
-              Live API. Start npm run server, then try customer@test.com / password123
+              Live API. After seeding, try customer@test.com / password123
             </AppText>
           )}
         </ScrollView>
@@ -342,5 +356,18 @@ const styles = StyleSheet.create({
   },
   switchText: {
     textAlign: 'center',
+  },
+  demoBanner: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 12,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  demoTitle: {
+    color: colors.primary,
+    fontWeight: '700',
   },
 });
