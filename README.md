@@ -89,10 +89,24 @@ New sign-ups need an Ethiopian phone: `+2519` followed by 8 digits.
 
 Production API: [https://gebeta-go-app.onrender.com](https://gebeta-go-app.onrender.com)
 
-- `GET /health` — process health
+- `GET /health` — process + Mongo readiness
 - `GET /api/restaurants` — public restaurant list
 
 The preview APK is built against this URL. A free Render instance sleeps when idle; the first request can take 30–60 seconds.
+
+### Render env (service `GEBETA_GO_APP`)
+
+Root directory must be `server` (see `render.yaml`). Required environment variables:
+
+| Variable | Notes |
+| --- | --- |
+| `NODE_ENV` | `production` |
+| `JWT_SECRET` | ≥ 32 characters |
+| `MONGO_URI` | MongoDB Atlas URI (not localhost). Allow Render IPs / `0.0.0.0/0` in Atlas Network Access |
+| `CLIENT_URL` | Optional comma-separated browser origins |
+| `PORT` | Set automatically by Render |
+
+If Mongo is missing/unreachable or `JWT_SECRET` is unset, the API exits with status `1` and mobile login shows a cancelled fetch.
 
 ## API surface
 

@@ -78,16 +78,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const data = await loginRequest(input);
     const nextUser = normalizeUser(data.user);
     await saveAuthToken(data.token);
-    await connectRealtime();
     setUser(nextUser);
+    // Socket connect is best-effort; a down realtime server must not undo a successful login.
+    try {
+      await connectRealtime();
+    } catch {
+      // ignore
+    }
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {
     const data = await registerRequest(input);
     const nextUser = normalizeUser(data.user);
     await saveAuthToken(data.token);
-    await connectRealtime();
     setUser(nextUser);
+    try {
+      await connectRealtime();
+    } catch {
+      // ignore
+    }
   }, []);
 
   const updateSession = useCallback((nextUser: AuthUser) => {
