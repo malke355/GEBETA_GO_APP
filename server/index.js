@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
+import mongoose from 'mongoose';
 
 import env from './config/env.js';
 import connectDB from './config/db.js';
@@ -15,7 +16,19 @@ import adminRoutes from './routes/adminRoutes.js';
 import createSocketServer from './config/socket.js';
 import { attachIo } from './utils/realtime.js';
 
-await connectDB();
+const DB_STATE_LABELS = {
+  0: 'disconnected',
+  1: 'connected',
+  2: 'connecting',
+  3: 'disconnecting',
+};
+
+try {
+  await connectDB();
+} catch (error) {
+  console.error('Fatal boot error while connecting to the database:', error);
+  process.exit(1);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -34,7 +47,8 @@ app.use(
       if (!origin || env.clientOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+      // Reject without throwing — a thrown Error here becomes an unhandled 500 for browsers.
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -46,12 +60,16 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use('/uploads', express.static(uploadDir));
 
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    status: 'ok',
+app.get('/health', (_req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const healthy = dbState === 1;
+
+  res.status(healthy ? 200 : 503).json({
+    success: healthy,
+    status: healthy ? 'ok' : 'degraded',
     environment: env.NODE_ENV,
     uptime: process.uptime(),
+    mongo: DB_STATE_LABELS[dbState] ?? 'unknown',
   });
 });
 
@@ -67,6 +85,11 @@ app.use(errorHandler);
 const io = createSocketServer(server);
 attachIo(app, io);
 
+server.on('error', (error) => {
+  console.error('HTTP server failed to start:', error);
+  process.exit(1);
+});
+
 server.listen(env.PORT, '0.0.0.0', () => {
   console.log(`GebetaGo API running in ${env.NODE_ENV} mode on port ${env.PORT}`);
 });
@@ -79,5 +102,15 @@ const shutdown = (signal) => {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+  process.exit(1);
+});
 
 export { app, server, io };

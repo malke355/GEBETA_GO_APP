@@ -23,12 +23,15 @@ export function normalizeUser(raw: AuthUser & { _id?: string }): AuthUser {
   };
 }
 
+// Login/register need extra headroom: free Render hosts often cold-start for 30–60s.
+const AUTH_TIMEOUT_MS = 90000;
+
 export function loginRequest(input: LoginInput) {
   if (env.useMockApi) {
     return mockLogin(input);
   }
 
-  return api.post<AuthResponse>(endpoints.auth.login, input);
+  return api.post<AuthResponse>(endpoints.auth.login, input, { timeoutMs: AUTH_TIMEOUT_MS });
 }
 
 export function registerRequest(input: RegisterInput) {
@@ -36,7 +39,7 @@ export function registerRequest(input: RegisterInput) {
     return mockRegister(input);
   }
 
-  return api.post<AuthResponse>(endpoints.auth.register, input);
+  return api.post<AuthResponse>(endpoints.auth.register, input, { timeoutMs: AUTH_TIMEOUT_MS });
 }
 
 export function fetchCurrentUser() {
