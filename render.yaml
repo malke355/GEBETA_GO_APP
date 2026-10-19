@@ -1,0 +1,22 @@
+# Blueprint for the GebetaGo API on Render (service name historically: GEBETA_GO_APP).
+# Set secret env vars in the Render dashboard — do not commit real values.
+services:
+  - type: web
+    name: GEBETA_GO_APP
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d

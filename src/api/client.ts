@@ -1,5 +1,5 @@
 import { env } from '@/config/env';
-import { ApiError } from './errors';
+import { ApiError, isAbortLikeError } from './errors';
 import { getAuthToken } from './token';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -32,6 +32,19 @@ function buildUrl(path: string, query?: RequestQuery): string {
   return url.toString();
 }
 
+function resolveTimeoutMs(timeoutMs: number | undefined): number {
+  if (typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+    return timeoutMs;
+  }
+
+  // Free Render instances can take 30–60s to wake; keep headroom above the default 15s.
+  if (/onrender\.com/i.test(env.apiUrl)) {
+    return Math.max(env.apiTimeoutMs, 60000);
+  }
+
+  return env.apiTimeoutMs;
+}
+
 export async function apiRequest<T>(options: RequestOptions): Promise<T> {
   const {
     method = 'GET',
@@ -40,16 +53,28 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
     body,
     headers,
     signal,
-    timeoutMs = env.apiTimeoutMs,
+    timeoutMs,
   } = options;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const onAbort = () => controller.abort();
   signal?.addEventListener('abort', onAbort);
 
+  // Resolve auth before starting the abort timer so SecureStore latency does not
+  // burn the network budget (Expo then surfaces cancel as FetchError, not AbortError).
+  const token = await getAuthToken();
+  if (signal?.aborted) {
+    signal.removeEventListener('abort', onAbort);
+    throw new ApiError({
+      message: 'The GebetaGo server took too long to respond. It may be waking up or offline — try again in a minute.',
+      status: 0,
+      payload: null,
+    });
+  }
+
+  const timeout = setTimeout(() => controller.abort(), resolveTimeoutMs(timeoutMs));
+
   try {
-    const token = await getAuthToken();
     const response = await fetch(buildUrl(path, query), {
       method,
       headers: {
@@ -77,9 +102,10 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
       throw error;
     }
 
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (isAbortLikeError(error)) {
       throw new ApiError({
-        message: 'Request timed out',
+        message:
+          'The GebetaGo server took too long to respond. It may be waking up or offline — try again in a minute.',
         status: 0,
         payload: null,
       });
@@ -108,5 +134,5 @@ export const api = {
   delete: <T>(path: string, options?: Omit<RequestOptions, 'method' | 'path' | 'body'>) =>
     apiRequest<T>({ ...options, method: 'DELETE', path }),
   upload: <T>(path: string, form: FormData, options?: Omit<RequestOptions, 'path' | 'body'>) =>
-    apiRequest<T>({ method: 'POST', timeoutMs: 60000, ...options, path, body: form }),
+    apiRequest<T>({ method: 'POST', timeoutMs: 90000, ...options, path, body: form }),
 };
